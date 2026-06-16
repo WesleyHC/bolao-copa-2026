@@ -8,10 +8,6 @@ st.set_page_config(
     layout="wide",
 )
 
-# =========================
-# LOGIN
-# =========================
-
 usuarios = {
     "arthur": {"senha": "arthur123", "coluna": "Chutes_Art", "nome": "Arthur"},
     "coelho": {"senha": "coelho123", "coluna": "Chutes_Cu", "nome": "Coelho"},
@@ -110,14 +106,9 @@ def calculo_pontuacao(resultado_real, resultado_chutado):
             gol_m_real == gol_m_chutado
             or gol_v_real == gol_v_chutado
         ):
-            return 2
+            return 0
 
     return 0
-
-
-# =========================
-# BANDEIRAS
-# =========================
 
 mapa_siglas = {
     "Alemanha": "DE",
