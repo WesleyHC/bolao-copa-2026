@@ -1,6 +1,8 @@
 import pandas as pd
 import streamlit as st
 import datetime
+import gspread
+from google.oauth2.service_account import Credentials
 
 st.set_page_config(
     page_title="Copa do Mundo 2026 - Bolão M02",
@@ -113,15 +115,15 @@ def calculo_pontuacao(resultado_real, resultado_chutado):
 mapa_siglas = {
     "Alemanha": "DE",
     "Argentina": "AR",
-    "AustrAlia": "AU",
-    "Belgica": "BE",
+    "Austrália": "AU",
+    "Bélgica": "BE",
     "Brasil": "BR",
-    "Camaroes": "CM",
-    "Canada": "CA",
+    "Camarões": "CM",
+    "Canadá": "CA",
     "Catar": "QA",
-    "Coreia do Sul": "KR",
+    "Coréia do Sul": "KR",
     "Costa Rica": "CR",
-    "Croacia": "HR",
+    "Croácia": "HR",
     "Dinamarca": "DK",
     "Equador": "EC",
     "Espanha": "ES",
@@ -130,20 +132,20 @@ mapa_siglas = {
     "Gana": "GH",
     "Holanda": "NL",
     "Inglaterra": "GB",
-    "Ira": "IR",
-    "Japao": "JP",
+    "Irã": "IR",
+    "Japão": "JP",
     "Marrocos": "MA",
-    "Mexico": "MX",
-    "Pais de Gales": "GB",
-    "Polonia": "PL",
+    "México": "MX",
+    "País de Gales": "GB",
+    "Polônia": "PL",
     "Portugal": "PT",
     "Senegal": "SN",
-    "Servia": "RS",
-    "Suiça": "CH",
-    "Tunisia": "TN",
+    "Sérvia": "RS",
+    "Suíça": "CH",
+    "Tunísia": "TN",
     "Uruguai": "UY",
-    "Italia": "IT",
-    "Colombia": "CO",
+    "Itália": "IT",
+    "Colômbia": "CO",
     "Chile": "CL",
     "Peru": "PE",
 }
@@ -156,22 +158,62 @@ jogadores = {
     "HC": "Chutes_HC",
 }
 
-if "df" not in st.session_state:
+@st.cache_resource
+def conectar_planilha():
 
-    df_temp = pd.read_csv("df.csv")
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets"
+    ]
 
-    def add_bandeira(nome):
+    creds = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=scopes
+    )
 
-        if pd.notna(nome) and nome in mapa_siglas:
-            sigla = mapa_siglas[nome]
-            return f"{nome} {sigla_para_bandeira(sigla)}"
+    cliente = gspread.authorize(creds)
 
-        return nome
+    planilha = cliente.open_by_key(
+        "1HEjaWHU-Oz9gECeBQvAxWczfvtuzqD4MruZ7doiHvkw"
+    )
 
-    df_temp["Equipe_Mandante"] = df_temp["Equipe_Mandante"].apply(add_bandeira)
-    df_temp["Equipe_Visitante"] = df_temp["Equipe_Visitante"].apply(add_bandeira)
+    return planilha.sheet1
 
-    st.session_state.df = df_temp
+sheet = conectar_planilha()
+
+dados = sheet.get_all_records()
+
+df_temp = pd.DataFrame(dados)
+
+def add_bandeira_mandante(nome):
+    if pd.notna(nome):
+        nome_limpo = str(nome).strip().title()
+        if nome_limpo in ["Coréia Do Sul", "Coreia Do Sul"]: nome_limpo = "Coreia do Sul"
+        if nome_limpo == "Costa Rica": nome_limpo = "Costa Rica"
+        if nome_limpo == "Estados Unidos": nome_limpo = "Estados Unidos"
+        if nome_limpo == "País De Gales": nome_limpo = "País de Gales"
+        
+        if nome_limpo in mapa_siglas:
+            sigla = mapa_siglas[nome_limpo]
+            return f"{nome_limpo} {sigla_para_bandeira(sigla)}"
+    return nome
+
+def add_bandeira_visitante(nome):
+    if pd.notna(nome):
+        nome_limpo = str(nome).strip().title()
+        if nome_limpo in ["Coréia Do Sul", "Coreia Do Sul"]: nome_limpo = "Coreia do Sul"
+        if nome_limpo == "Costa Rica": nome_limpo = "Costa Rica"
+        if nome_limpo == "Estados Unidos": nome_limpo = "Estados Unidos"
+        if nome_limpo == "País De Gales": nome_limpo = "País de Gales"
+        
+        if nome_limpo in mapa_siglas:
+            sigla = mapa_siglas[nome_limpo]
+            return f"{sigla_para_bandeira(sigla)} {nome_limpo}"
+    return nome
+
+df_temp["Equipe_Mandante"] = df_temp["Equipe_Mandante"].apply(add_bandeira_mandante)
+df_temp["Equipe_Visitante"] = df_temp["Equipe_Visitante"].apply(add_bandeira_visitante)
+
+st.session_state.df = df_temp
 
 col1, col2 = st.columns([8, 1])
 
@@ -185,7 +227,7 @@ with col2:
         st.session_state.logado = False
         st.rerun()
 
-edited_df = st.session_state.df.copy()
+edited_df = df_temp .copy()
 
 pontos = {
     "Arthur": 0,
@@ -214,103 +256,93 @@ for nome, coluna_chute in jogadores.items():
 
 st.divider()
 
-st.subheader("🏆 Placar Geral")
+aba_placar, aba_palpites, aba_admin = st.tabs(["🏆 Placar Geral", "🎯 Meus Palpites", "⚙️ Admin"])
 
-c1, c2, c3, c4, c5 = st.columns(5)
+with aba_placar:
+    st.subheader("🏆 Classificação")
+    
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("Arthur", pontos["Arthur"])
+    c2.metric("Coelho", pontos["Coelho"])
+    c3.metric("Feto", pontos["Feto"])
+    c4.metric("MC", pontos["MC"])
+    c5.metric("HC", pontos["HC"])
 
-c1.metric("Arthur", pontos["Arthur"])
-c2.metric("Coelho", pontos["Coelho"])
-c3.metric("Feto", pontos["Feto"])
-c4.metric("MC", pontos["MC"])
-c5.metric("HC", pontos["HC"])
+with aba_palpites:
+    st.subheader("🎯 Meus Palpites de Hoje")
+    
+    data_hoje = datetime.date.today().strftime("%Y-%m-%d")
+    jogos_hoje = df_temp[df_temp["Data"] == data_hoje]
 
-st.divider()
-st.subheader("🎯 Meus Palpites de Hoje")
-
-data_hoje = datetime.date.today().strftime("%Y-%m-%d")
-
-jogos_hoje = st.session_state.df[
-    st.session_state.df["Data"] == data_hoje
-]
-
-if jogos_hoje.empty:
-
-    st.info(
-        f"Nenhum jogo programado para hoje ({data_hoje})."
-    )
-
-else:
-
-    with st.form("form_palpites"):
-
-        novos_chutes = {}
-
-        for index, jogo in jogos_hoje.iterrows():
-
-            st.markdown(
-                f"### {jogo['Equipe_Mandante']} x {jogo['Equipe_Visitante']}"
-            )
-
-            chute_atual = jogo[coluna_jogador]
-
-            try:
-
-                if pd.notna(chute_atual):
-                    g1, g2 = map(
-                        int,
-                        str(chute_atual).split("x")
-                    )
-                else:
+    if jogos_hoje.empty:
+        st.info(f"Nenhum jogo programado para hoje ({data_hoje}).")
+    else:
+        with st.form("form_palpites"):
+            novos_chutes = {}
+            for index, jogo in jogos_hoje.iterrows():
+                st.markdown(f"### {jogo['Equipe_Mandante']} x {jogo['Equipe_Visitante']}")
+                chute_atual = jogo[coluna_jogador]
+                
+                try:
+                    if pd.notna(chute_atual):
+                        g1, g2 = map(int, str(chute_atual).split("x"))
+                    else:
+                        g1, g2 = 0, 0
+                except:
                     g1, g2 = 0, 0
 
-            except:
-                g1, g2 = 0, 0
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    gol_casa = st.number_input("Mandante", min_value=0, max_value=20, value=g1, key=f"casa_{index}")
+                with col_b:
+                    gol_fora = st.number_input("Visitante", min_value=0, max_value=20, value=g2, key=f"fora_{index}")
 
-            col_a, col_b = st.columns(2)
+                novos_chutes[index] = f"{gol_casa}x{gol_fora}"
+                st.divider()
 
-            with col_a:
+            if st.form_submit_button("💾 Salvar Palpites"):
+                sheet = conectar_planilha()
+                for idx, chute in novos_chutes.items():
+                    linha_planilha = idx + 2
+                    coluna_planilha = st.session_state.df.columns.get_loc(coluna_jogador) + 1
+                    sheet.update_cell(linha_planilha, coluna_planilha, chute)
 
-                gol_casa = st.number_input(
-                    "Mandante",
-                    min_value=0,
-                    max_value=20,
-                    value=g1,
-                    key=f"casa_{index}"
-                )
+                st.success("Palpites salvos com sucesso!")
+                st.cache_resource.clear()
+                st.rerun()
 
-            with col_b:
-
-                gol_fora = st.number_input(
-                    "Visitante",
-                    min_value=0,
-                    max_value=20,
-                    value=g2,
-                    key=f"fora_{index}"
-                )
-
-            novos_chutes[index] = f"{gol_casa}x{gol_fora}"
-
-            st.divider()
-
-        salvar = st.form_submit_button(
-            "💾 Salvar Palpites"
+with aba_admin:
+    if usuario_logado == "hc": 
+        st.subheader("⚙️ Atualizar Resultados Oficiais")
+        st.warning("Área restrita. As alterações feitas aqui impactam o placar de todos os jogadores.")
+        
+        df_admin = df_temp[['Data', 'Equipe_Mandante', 'Equipe_Visitante', 'Resultado']].copy()
+        
+        df_editado_admin = st.data_editor(
+            df_admin,
+            disabled=["Data", "Equipe_Mandante", "Equipe_Visitante"],
+            key="editor_admin"
         )
-
-        if salvar:
-
-            for idx, chute in novos_chutes.items():
-                st.session_state.df.loc[
-                    idx,
-                    coluna_jogador
-                ] = chute
-
-            st.session_state.df.to_csv(
-                "df.csv",
-                index=False
-            )
-
-            st.success(
-                "Palpites salvos com sucesso!"
-            )
-
-            st.rerun()
+        
+        if st.button("Salvar Resultados no Banco de Dados"):
+            sheet = conectar_planilha()
+            coluna_resultado = st.session_state.df.columns.get_loc("Resultado") + 1
+            alteracoes_feitas = 0
+            
+            for index, row in df_editado_admin.iterrows():
+                resultado_velho = df_admin.loc[index, 'Resultado']
+                resultado_novo = row['Resultado']
+                
+                if str(resultado_velho) != str(resultado_novo):
+                    linha_planilha = index + 2
+                    sheet.update_cell(linha_planilha, coluna_resultado, resultado_novo)
+                    alteracoes_feitas += 1
+            
+            if alteracoes_feitas > 0:
+                st.success(f"{alteracoes_feitas} resultado(s) atualizado(s) com sucesso!")
+                st.cache_resource.clear()
+                st.rerun()
+            else:
+                st.info("Nenhuma alteração detectada para salvar.")
+    else:
+        st.error("Você não tem permissão para acessar esta área.")
