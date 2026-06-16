@@ -49,10 +49,6 @@ usuario_logado = st.session_state.usuario
 coluna_jogador = usuarios[usuario_logado]["coluna"]
 nome_jogador = usuarios[usuario_logado]["nome"]
 
-# =========================
-# FUNÇÕES
-# =========================
-
 def sigla_para_bandeira(sigla):
     if not isinstance(sigla, str) or len(sigla) != 2:
         return sigla
@@ -169,10 +165,6 @@ jogadores = {
     "HC": "Chutes_HC",
 }
 
-# =========================
-# CARREGA CSV
-# =========================
-
 if "df" not in st.session_state:
 
     df_temp = pd.read_csv("df.csv")
@@ -190,10 +182,6 @@ if "df" not in st.session_state:
 
     st.session_state.df = df_temp
 
-# =========================
-# TOPO
-# =========================
-
 col1, col2 = st.columns([8, 1])
 
 with col1:
@@ -205,10 +193,6 @@ with col2:
     if st.button("Sair"):
         st.session_state.logado = False
         st.rerun()
-
-# =========================
-# RANKING
-# =========================
 
 edited_df = st.session_state.df.copy()
 
@@ -248,10 +232,6 @@ c2.metric("Coelho", pontos["Coelho"])
 c3.metric("Feto", pontos["Feto"])
 c4.metric("MC", pontos["MC"])
 c5.metric("HC", pontos["HC"])
-
-# =========================
-# PALPITES
-# =========================
 
 st.divider()
 st.subheader("🎯 Meus Palpites de Hoje")
