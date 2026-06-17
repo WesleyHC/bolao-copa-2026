@@ -1,8 +1,13 @@
 import pandas as pd
 import streamlit as st
 import datetime
-import gspread
-from google.oauth2.service_account import Credentials
+
+try:
+    import gspread
+    from google.oauth2.service_account import Credentials
+except Exception as e:
+    st.error(f"🚨 O ERRO REAL É: {e}")
+    st.stop()
 
 st.set_page_config(
     page_title="Copa do Mundo 2026 - Bolão M02",
