@@ -1,13 +1,17 @@
-import pandas as pd
-import streamlit as st
-import datetime
+import subprocess
+import sys
 
 try:
     import gspread
     from google.oauth2.service_account import Credentials
-except Exception as e:
-    st.error(f"🚨 O ERRO REAL É: {e}")
-    st.stop()
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "gspread", "google-auth"])
+    import gspread
+    from google.oauth2.service_account import Credentials
+
+import pandas as pd
+import streamlit as st
+import datetime
 
 st.set_page_config(
     page_title="Copa do Mundo 2026 - Bolão M02",
