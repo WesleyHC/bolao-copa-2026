@@ -159,6 +159,19 @@ mapa_siglas = {
     "Chile": "CL",
     "Peru": "PE",
     "Uzbequistão": "UZ"
+    "África do Sul": "ZA",
+    "Arábia Saudita": "SA",
+    "Bósnia e Herzegovina": "BA",
+    "Cabo Verde": "CV",
+    "Curação": "CW",
+    "Egito": "EG",
+    "Escócia": "GB",
+    "EUA": "US",
+    "Nova Zelândia": "NZ",
+    "Paraguai": "PY",
+    "Suécia": "SE",
+    "Tchéquia": "CZ",
+    "Turquia": "TR",
 }
 
 jogadores = {
