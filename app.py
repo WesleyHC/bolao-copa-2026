@@ -212,26 +212,30 @@ def add_bandeira_mandante(nome):
     if pd.notna(nome):
         nome_limpo = str(nome).strip().title()
         if nome_limpo in ["Coréia Do Sul", "Coreia Do Sul"]: nome_limpo = "Coreia do Sul"
-        if nome_limpo == "Costa Rica": nome_limpo = "Costa Rica"
-        if nome_limpo == "Estados Unidos": nome_limpo = "Estados Unidos"
         if nome_limpo == "País De Gales": nome_limpo = "País de Gales"
+        if nome_limpo == "Costa Do Marfim": nome_limpo = "Costa do Marfim"
+        if nome_limpo == "Rd Congo": nome_limpo = "RD Congo"
+        if nome_limpo == "África Do Sul": nome_limpo = "África do Sul"
+        if nome_limpo == "Bósnia E Herzegovina": nome_limpo = "Bósnia e Herzegovina"
         
         if nome_limpo in mapa_siglas:
             sigla = mapa_siglas[nome_limpo]
-            return f"{nome_limpo} {sigla_para_bandeira(sigla)}"
+            return f"{nome_limpo} {sigla_para_bandeira(sigla)}" 
     return nome
 
 def add_bandeira_visitante(nome):
     if pd.notna(nome):
         nome_limpo = str(nome).strip().title()
         if nome_limpo in ["Coréia Do Sul", "Coreia Do Sul"]: nome_limpo = "Coreia do Sul"
-        if nome_limpo == "Costa Rica": nome_limpo = "Costa Rica"
-        if nome_limpo == "Estados Unidos": nome_limpo = "Estados Unidos"
         if nome_limpo == "País De Gales": nome_limpo = "País de Gales"
+        if nome_limpo == "Costa Do Marfim": nome_limpo = "Costa do Marfim"
+        if nome_limpo == "Rd Congo": nome_limpo = "RD Congo"
+        if nome_limpo == "África Do Sul": nome_limpo = "África do Sul"
+        if nome_limpo == "Bósnia E Herzegovina": nome_limpo = "Bósnia e Herzegovina"
         
         if nome_limpo in mapa_siglas:
             sigla = mapa_siglas[nome_limpo]
-            return f"{sigla_para_bandeira(sigla)} {nome_limpo}"
+            return f"{sigla_para_bandeira(sigla)} {nome_limpo}" 
     return nome
 
 df_temp["Equipe_Mandante"] = df_temp["Equipe_Mandante"].apply(add_bandeira_mandante)
