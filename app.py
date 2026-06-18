@@ -158,7 +158,7 @@ mapa_siglas = {
     "Colômbia": "CO",
     "Chile": "CL",
     "Peru": "PE",
-    "Uzbequistão": "UZ"
+    "Uzbequistão": "UZ",
     "África do Sul": "ZA",
     "Arábia Saudita": "SA",
     "Bósnia e Herzegovina": "BA",
