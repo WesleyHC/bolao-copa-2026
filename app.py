@@ -158,6 +158,7 @@ mapa_siglas = {
     "Colômbia": "CO",
     "Chile": "CL",
     "Peru": "PE",
+    "Uzbequistão": "UZ"
 }
 
 jogadores = {
