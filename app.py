@@ -329,7 +329,7 @@ with aba_palpites:
                         pass
                 
                 if jogo_ja_comecou:
-                    st.caption("🔒 **Jogo já iniciado ou encerrado.** Palpites bloqueados!")
+                    st.caption("🔒 **Jogo já iniciado ou encerrado.**")
                 else:
                     st.caption(f"⏰ Horário do jogo: {jogo['Horario']}")
 
@@ -414,7 +414,7 @@ with aba_galera:
             
             jogos_para_exibir = df_iniciados[df_iniciados[coluna_rodada] == rodada_selecionada].copy()
         else:
-            st.warning("Aviso: Coluna 'Rodada' não foi encontrada no Google Sheets.")
+            st.warning("Aviso: Coluna 'Fase' não foi encontrada no Google Sheets.")
             jogos_para_exibir = df_iniciados.copy()
 
         def verifica_se_acabou(resultado):
@@ -431,7 +431,7 @@ with aba_galera:
             tem_resultado = pd.notna(resultado_oficial) and str(resultado_oficial).strip() != ""
 
             if tem_resultado:
-                st.markdown(f"Placar Oficial: **{resultado_oficial}**")
+                st.markdown(f"Placar oficial: **{resultado_oficial}**")
             else:
                 st.caption(f"📅 Data: {jogo['Data']} | ⏰ Horário: {jogo.get('Horario', '-')} | 🟢 **Em andamento**")
 
