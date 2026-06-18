@@ -354,35 +354,54 @@ with aba_palpites:
                     st.warning("Todos os jogos de hoje já começaram. Não há palpites novos para salvar.")
 
 with aba_galera:
-    st.subheader("👥 Palpites de todos os jogadores")
-    st.caption("Nota: Os palpites dos seus adversários ficam ocultos (🔒) até o horário de início do jogo.")
+    st.subheader("👥 Palpites da Galera")
+    st.caption("Selecione a rodada para acompanhar os palpites e as pontuações dos jogos que já começaram ou terminaram.")
 
     fuso_br = ZoneInfo("America/Sao_Paulo")
     agora_br = datetime.datetime.now(fuso_br)
-    data_hoje = agora_br.strftime("%Y-%m-%d")
 
-    filtro_jogos = st.radio("Visualizar jogos:", ["Apenas os de Hoje", "Todos os Jogos"], horizontal=True, key="filtro_galera")
+    indices_jogos_iniciados = []
+    
+    for index, jogo in df_temp.iterrows():
+        jogo_ja_comecou = False
+        
+        resultado_oficial = jogo.get("Resultado", "")
+        tem_resultado = pd.notna(resultado_oficial) and str(resultado_oficial).strip() != ""
+        
+        if tem_resultado:
+            jogo_ja_comecou = True
+        elif "Horario" in jogo and pd.notna(jogo["Horario"]) and "Data" in jogo and pd.notna(jogo["Data"]):
+            try:
+                string_data_hora = f"{jogo['Data']} {str(jogo['Horario']).strip()}"
+                data_hora_jogo = datetime.datetime.strptime(string_data_hora, "%Y-%m-%d %H:%M").replace(tzinfo=fuso_br)
+                
+                if agora_br >= data_hora_jogo:
+                    jogo_ja_comecou = True
+            except:
+                pass
+        
+        if jogo_ja_comecou:
+            indices_jogos_iniciados.append(index)
 
-    if filtro_jogos == "Apenas os de Hoje":
-        jogos_galera = df_temp[df_temp["Data"] == data_hoje]
+    df_iniciados = df_temp.loc[indices_jogos_iniciados]
+
+    if df_iniciados.empty:
+        st.info("🔒 Nenhum jogo começou ou foi encerrado ainda. Os palpites dos adversários serão revelados assim que as partidas iniciarem!")
+    
     else:
-        jogos_galera = df_temp
-
-    if jogos_galera.empty:
-        st.info("Nenhum jogo encontrado para o filtro selecionado.")
-    else:
-        for index, jogo in jogos_galera.iterrows():
+        coluna_rodada = "Fase" if "Fase" in df_iniciados.columns else ("Fase" if "Fase" in df_iniciados.columns else None)
+        
+        if coluna_rodada:
+            rodadas_disponiveis = sorted(df_iniciados[coluna_rodada].unique())
             
-            jogo_ja_comecou = False
-            if "Horario" in jogo and pd.notna(jogo["Horario"]):
-                try:
-                    string_data_hora = f"{jogo['Data']} {str(jogo['Horario']).strip()}"
-                    data_hora_jogo = datetime.datetime.strptime(string_data_hora, "%Y-%m-%d %H:%M").replace(tzinfo=fuso_br)
-                    if agora_br >= data_hora_jogo:
-                        jogo_ja_comecou = True
-                except:
-                    pass
+            rodada_selecionada = st.selectbox("📊 Filtrar por Fase:", rodadas_disponiveis, key="seletor_fases")
+            
+            jogos_para_exibir = df_iniciados[df_iniciados[coluna_rodada] == rodada_selecionada]
+        else:
+            st.warning("Aviso: Coluna 'Fase' não foi encontrada no Google Sheets. Mostrando todos os jogos iniciados:")
+            jogos_para_exibir = df_iniciados
 
+        for index, jogo in jogos_para_exibir.iterrows():
             st.markdown(f"### {jogo['Equipe_Mandante']} x {jogo['Equipe_Visitante']}")
             
             resultado_oficial = jogo.get("Resultado", "")
@@ -391,7 +410,7 @@ with aba_galera:
             if tem_resultado:
                 st.markdown(f"Placar Oficial: **{resultado_oficial}**")
             else:
-                st.caption(f"📅 Data: {jogo['Data']} | ⏰ Horário: {jogo.get('Horario', '-')}")
+                st.caption(f"📅 Data: {jogo['Data']} | ⏰ Horário: {jogo.get('Horario', '-')} | 🟢 **Em andamento**")
 
             cols_profs = st.columns(5)
             
@@ -406,23 +425,19 @@ with aba_galera:
             for i, (nome_part, col_part) in enumerate(participantes):
                 with cols_profs[i]:
                     valor_chute = jogo[col_part] if pd.notna(jogo[col_part]) and str(jogo[col_part]).strip() != "" else "-"
-                    
-                    if jogo_ja_comecou or col_part == coluna_jogador:
-                        if tem_resultado and valor_chute != "-":
-                            pontos_ganhos = calculo_pontuacao(resultado_oficial, valor_chute)
-                            
-                            cor = "normal" if pontos_ganhos > 0 else "off"
-                            
-                            st.metric(
-                                label=nome_part, 
-                                value=str(valor_chute), 
-                                delta=f"{pontos_ganhos} pts", 
-                                delta_color=cor
-                            )
-                        else:
-                            st.metric(label=nome_part, value=str(valor_chute))
+
+                    if tem_resultado and valor_chute != "-":
+                        pontos_ganhos = calculo_pontuacao(resultado_oficial, valor_chute)
+                        cor = "normal" if pontos_ganhos > 0 else "off"
+                        
+                        st.metric(
+                            label=nome_part, 
+                            value=str(valor_chute), 
+                            delta=f"{pontos_ganhos} pts", 
+                            delta_color=cor
+                        )
                     else:
-                        st.metric(label=nome_part, value="🔒")
+                        st.metric(label=nome_part, value=str(valor_chute))
             
             st.divider()
 
