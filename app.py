@@ -410,14 +410,20 @@ with aba_galera:
         
         if coluna_rodada:
             rodadas_disponiveis = sorted(df_iniciados[coluna_rodada].unique())
+            rodada_selecionada = st.selectbox("📊 Filtrar por Rodada:", rodadas_disponiveis, key="seletor_rodadas")
             
-            rodada_selecionada = st.selectbox("📊 Filtrar por Fase:", rodadas_disponiveis, key="seletor_fases")
-            
-            jogos_para_exibir = df_iniciados[df_iniciados[coluna_rodada] == rodada_selecionada]
+            jogos_para_exibir = df_iniciados[df_iniciados[coluna_rodada] == rodada_selecionada].copy()
         else:
-            st.warning("Aviso: Coluna 'Fase' não foi encontrada no Google Sheets. Mostrando todos os jogos iniciados:")
-            jogos_para_exibir = df_iniciados
+            st.warning("Aviso: Coluna 'Rodada' não foi encontrada no Google Sheets.")
+            jogos_para_exibir = df_iniciados.copy()
 
+        def verifica_se_acabou(resultado):
+            return pd.notna(resultado) and str(resultado).strip() != ""
+            
+        jogos_para_exibir["_encerrado"] = jogos_para_exibir["Resultado"].apply(verifica_se_acabou)
+        
+        jogos_para_exibir = jogos_para_exibir.sort_values(by=["_encerrado"], ascending=True)
+        
         for index, jogo in jogos_para_exibir.iterrows():
             st.markdown(f"### {jogo['Equipe_Mandante']} x {jogo['Equipe_Visitante']}")
             
@@ -442,7 +448,7 @@ with aba_galera:
             for i, (nome_part, col_part) in enumerate(participantes):
                 with cols_profs[i]:
                     valor_chute = jogo[col_part] if pd.notna(jogo[col_part]) and str(jogo[col_part]).strip() != "" else "-"
-
+                    
                     if tem_resultado and valor_chute != "-":
                         pontos_ganhos = calculo_pontuacao(resultado_oficial, valor_chute)
                         cor = "normal" if pontos_ganhos > 0 else "off"
@@ -457,7 +463,7 @@ with aba_galera:
                         st.metric(label=nome_part, value=str(valor_chute))
             
             st.divider()
-
+            
 with aba_admin:
     if usuario_logado == "hc": 
         st.subheader("⚙️ Atualizar Resultados Oficiais")
