@@ -267,7 +267,7 @@ for nome, coluna_chute in jogadores.items():
 
 st.divider()
 
-aba_placar, aba_palpites, aba_admin = st.tabs(["🏆 Placar Geral", "🎯 Meus Palpites", "⚙️ Admin"])
+aba_placar, aba_palpites, aba_galera, aba_admin = st.tabs(["🏆 Placar Geral", "🎯 Meus Palpites", "👥 Palpites da Galera", "⚙️ Admin"])
 
 with aba_placar:
     st.subheader("🏆 Classificação")
@@ -283,7 +283,9 @@ with aba_palpites:
     st.subheader("🎯 Meus Palpites de Hoje")
     
     fuso_br = ZoneInfo("America/Sao_Paulo")
-    data_hoje = datetime.datetime.now(fuso_br).strftime("%Y-%m-%d")
+    agora_br = datetime.datetime.now(fuso_br)
+    data_hoje = agora_br.strftime("%Y-%m-%d")
+    
     jogos_hoje = df_temp[df_temp["Data"] == data_hoje]
 
     if jogos_hoje.empty:
@@ -291,8 +293,29 @@ with aba_palpites:
     else:
         with st.form("form_palpites"):
             novos_chutes = {}
+            
             for index, jogo in jogos_hoje.iterrows():
                 st.markdown(f"### {jogo['Equipe_Mandante']} x {jogo['Equipe_Visitante']}")
+                jogo_ja_comecou = False
+                
+                if "Horario" in jogo and pd.notna(jogo["Horario"]):
+                    try:
+                        string_data_hora = f"{jogo['Data']} {str(jogo['Horario']).strip()}"
+                        
+                        data_hora_jogo = datetime.datetime.strptime(string_data_hora, "%Y-%m-%d %H:%M")
+                        
+                        data_hora_jogo = data_hora_jogo.replace(tzinfo=fuso_br)
+                        
+                        if agora_br >= data_hora_jogo:
+                            jogo_ja_comecou = True
+                    except:
+                        pass
+                
+                if jogo_ja_comecou:
+                    st.caption("🔒 **Jogo já iniciado ou encerrado.** Palpites bloqueados!")
+                else:
+                    st.caption(f"⏰ Horário do jogo: {jogo['Horario']}")
+
                 chute_atual = jogo[coluna_jogador]
                 
                 try:
@@ -305,23 +328,103 @@ with aba_palpites:
 
                 col_a, col_b = st.columns(2)
                 with col_a:
-                    gol_casa = st.number_input("Mandante", min_value=0, max_value=20, value=g1, key=f"casa_{index}")
+                    gol_casa = st.number_input("Mandante", min_value=0, max_value=20, value=g1, key=f"casa_{index}", disabled=jogo_ja_comecou)
                 with col_b:
-                    gol_fora = st.number_input("Visitante", min_value=0, max_value=20, value=g2, key=f"fora_{index}")
+                    gol_fora = st.number_input("Visitante", min_value=0, max_value=20, value=g2, key=f"fora_{index}", disabled=jogo_ja_comecou)
 
-                novos_chutes[index] = f"{gol_casa}x{gol_fora}"
+                if not jogo_ja_comecou:
+                    novos_chutes[index] = f"{gol_casa}x{gol_fora}"
+                
                 st.divider()
 
-            if st.form_submit_button("💾 Salvar Palpites"):
-                sheet = conectar_planilha()
-                for idx, chute in novos_chutes.items():
-                    linha_planilha = idx + 2
-                    coluna_planilha = st.session_state.df.columns.get_loc(coluna_jogador) + 1
-                    sheet.update_cell(linha_planilha, coluna_planilha, chute)
+            salvar = st.form_submit_button("💾 Salvar Palpites")
 
-                st.success("Palpites salvos com sucesso!")
-                st.cache_resource.clear()
-                st.rerun()
+            if salvar:
+                if novos_chutes:
+                    sheet = conectar_planilha()
+                    for idx, chute in novos_chutes.items():
+                        linha_planilha = idx + 2
+                        coluna_planilha = st.session_state.df.columns.get_loc(coluna_jogador) + 1
+                        sheet.update_cell(linha_planilha, coluna_planilha, chute)
+
+                    st.success("Palpites enviados com sucesso!")
+                    st.cache_resource.clear()
+                    st.rerun()
+                else:
+                    st.warning("Todos os jogos de hoje já começaram. Não há palpites novos para salvar.")
+
+with aba_galera:
+    st.subheader("👥 Palpites de todos os jogadores")
+    st.caption("Nota: Os palpites dos seus adversários ficam ocultos (🔒) até o horário de início do jogo.")
+
+    fuso_br = ZoneInfo("America/Sao_Paulo")
+    agora_br = datetime.datetime.now(fuso_br)
+    data_hoje = agora_br.strftime("%Y-%m-%d")
+
+    filtro_jogos = st.radio("Visualizar jogos:", ["Apenas os de Hoje", "Todos os Jogos"], horizontal=True, key="filtro_galera")
+
+    if filtro_jogos == "Apenas os de Hoje":
+        jogos_galera = df_temp[df_temp["Data"] == data_hoje]
+    else:
+        jogos_galera = df_temp
+
+    if jogos_galera.empty:
+        st.info("Nenhum jogo encontrado para o filtro selecionado.")
+    else:
+        for index, jogo in jogos_galera.iterrows():
+            
+            jogo_ja_comecou = False
+            if "Horario" in jogo and pd.notna(jogo["Horario"]):
+                try:
+                    string_data_hora = f"{jogo['Data']} {str(jogo['Horario']).strip()}"
+                    data_hora_jogo = datetime.datetime.strptime(string_data_hora, "%Y-%m-%d %H:%M").replace(tzinfo=fuso_br)
+                    if agora_br >= data_hora_jogo:
+                        jogo_ja_comecou = True
+                except:
+                    pass
+
+            st.markdown(f"### {jogo['Equipe_Mandante']} x {jogo['Equipe_Visitante']}")
+            
+            resultado_oficial = jogo.get("Resultado", "")
+            tem_resultado = pd.notna(resultado_oficial) and str(resultado_oficial).strip() != ""
+
+            if tem_resultado:
+                st.markdown(f"Placar Oficial: **{resultado_oficial}**")
+            else:
+                st.caption(f"📅 Data: {jogo['Data']} | ⏰ Horário: {jogo.get('Horario', '-')}")
+
+            cols_profs = st.columns(5)
+            
+            participantes = [
+                ("Arthur", "Chutes_Art"),
+                ("Coelho", "Chutes_Cu"),
+                ("Feto", "Chutes_Feto"),
+                ("MC", "Chutes_MC"),
+                ("HC", "Chutes_HC")
+            ]
+
+            for i, (nome_part, col_part) in enumerate(participantes):
+                with cols_profs[i]:
+                    valor_chute = jogo[col_part] if pd.notna(jogo[col_part]) and str(jogo[col_part]).strip() != "" else "-"
+                    
+                    if jogo_ja_comecou or col_part == coluna_jogador:
+                        if tem_resultado and valor_chute != "-":
+                            pontos_ganhos = calculo_pontuacao(resultado_oficial, valor_chute)
+                            
+                            cor = "normal" if pontos_ganhos > 0 else "off"
+                            
+                            st.metric(
+                                label=nome_part, 
+                                value=str(valor_chute), 
+                                delta=f"{pontos_ganhos} pts", 
+                                delta_color=cor
+                            )
+                        else:
+                            st.metric(label=nome_part, value=str(valor_chute))
+                    else:
+                        st.metric(label=nome_part, value="🔒")
+            
+            st.divider()
 
 with aba_admin:
     if usuario_logado == "hc": 
