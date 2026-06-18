@@ -3,6 +3,7 @@ import streamlit as st
 import datetime
 import gspread
 from google.oauth2.service_account import Credentials
+from zoneinfo import ZoneInfo
 
 st.set_page_config(
     page_title="Copa do Mundo 2026 - Bolão M02",
@@ -271,7 +272,8 @@ with aba_placar:
 with aba_palpites:
     st.subheader("🎯 Meus Palpites de Hoje")
     
-    data_hoje = datetime.date.today().strftime("%Y-%m-%d")
+    fuso_br = ZoneInfo("America/Sao_Paulo")
+    data_hoje = datetime.datetime.now(fuso_br).strftime("%Y-%m-%d")
     jogos_hoje = df_temp[df_temp["Data"] == data_hoje]
 
     if jogos_hoje.empty:
