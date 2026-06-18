@@ -211,7 +211,7 @@ df_temp = pd.DataFrame(dados)
 def add_bandeira_mandante(nome):
     if pd.notna(nome):
         nome_limpo = str(nome).strip().title()
-        if nome_limpo in ["Coréia Do Sul", "Coreia Do Sul"]: nome_limpo = "Coreia do Sul"
+        if nome_limpo in ["Coréia Do Sul", "Coreia Do Sul"]: nome_limpo = "Coréia do Sul"
         if nome_limpo == "País De Gales": nome_limpo = "País de Gales"
         if nome_limpo == "Costa Do Marfim": nome_limpo = "Costa do Marfim"
         if nome_limpo == "Rd Congo": nome_limpo = "RD Congo"
@@ -226,7 +226,7 @@ def add_bandeira_mandante(nome):
 def add_bandeira_visitante(nome):
     if pd.notna(nome):
         nome_limpo = str(nome).strip().title()
-        if nome_limpo in ["Coréia Do Sul", "Coreia Do Sul"]: nome_limpo = "Coreia do Sul"
+        if nome_limpo in ["Coréia Do Sul", "Coreia Do Sul"]: nome_limpo = "Coréia do Sul"
         if nome_limpo == "País De Gales": nome_limpo = "País de Gales"
         if nome_limpo == "Costa Do Marfim": nome_limpo = "Costa do Marfim"
         if nome_limpo == "Rd Congo": nome_limpo = "RD Congo"
