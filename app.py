@@ -4,6 +4,7 @@ import datetime
 import gspread
 from google.oauth2.service_account import Credentials
 from zoneinfo import ZoneInfo
+import extra_streamlit_components as stx
 
 st.set_page_config(
     page_title="Copa do Mundo 2026 - Bolão M02",
@@ -19,30 +20,44 @@ usuarios = {
     "hc": {"senha": "hczadas2209", "coluna": "Chutes_HC", "nome": "HC"},
 }
 
+cookie_manager = stx.CookieManager()
+
 if "logado" not in st.session_state:
     st.session_state.logado = False
 
-if not st.session_state.logado:
+usuario_salvo = cookie_manager.get(cookie="usuario_bolao")
 
+if usuario_salvo and not st.session_state.logado:
+    if usuario_salvo in usuarios:
+        st.session_state.logado = True
+        st.session_state.usuario = usuario_salvo
+        st.rerun()
+
+if not st.session_state.logado:
     st.title("🔐 Login do Bolão")
 
     usuario = st.text_input("Usuário")
     senha = st.text_input("Senha", type="password")
+    
+    manter_login = st.checkbox("Manter conectado por 30 dias")
 
     if st.button("Entrar"):
-
         if (
             usuario.lower() in usuarios
             and usuarios[usuario.lower()]["senha"] == senha
         ):
             st.session_state.logado = True
             st.session_state.usuario = usuario.lower()
-            st.rerun()
+            
+            if manter_login:
+                cookie_manager.set("usuario_bolao", usuario.lower(), key="cookie_set", max_age=2592000)
 
+            st.rerun()
         else:
             st.error("Usuário ou senha incorretos.")
 
     st.stop()
+
 
 usuario_logado = st.session_state.usuario
 coluna_jogador = usuarios[usuario_logado]["coluna"]
@@ -250,9 +265,9 @@ with col1:
     st.write(f"Bem-vindo, **{nome_jogador}**!")
 
 with col2:
-
     if st.button("Sair"):
         st.session_state.logado = False
+        cookie_manager.delete("usuario_bolao", key="cookie_delete")
         st.rerun()
 
 edited_df = df_temp .copy()
