@@ -21,14 +21,12 @@ usuarios = {
     "hc": {"senha": "hczadas2209", "coluna": "Chutes_HC", "nome": "HC"},
 }
 
-if "cookie_manager" not in st.session_state:
-    st.session_state.cookie_manager = stx.CookieManager()
-
-cookie_manager = st.session_state.cookie_manager
+cookie_manager = stx.CookieManager(key="gerenciador_de_cookies_fixo")
 
 if "logado" not in st.session_state:
     st.session_state.logado = False
 
+todos_cookies = cookie_manager.get_all()
 usuario_salvo = cookie_manager.get(cookie="usuario_bolao")
 
 if usuario_salvo and not st.session_state.logado:
@@ -43,7 +41,7 @@ if not st.session_state.logado:
     usuario = st.text_input("Usuário")
     senha = st.text_input("Senha", type="password")
     
-    manter_login = st.checkbox("Manter conectado")
+    manter_login = st.checkbox("Manter conectado por 30 dias")
 
     if st.button("Entrar"):
         if (
@@ -54,15 +52,17 @@ if not st.session_state.logado:
             st.session_state.usuario = usuario.lower()
             
             if manter_login:
-                cookie_manager.set("usuario_bolao", usuario.lower(), key="cookie_set", max_age=2592000)
-            
-            st.success("✅ Login efetuado com sucesso! Entrando...")
-            time.sleep(1) 
-            st.rerun()
+                cookie_manager.set("usuario_bolao", usuario.lower(), key="salvar_cookie", max_age=2592000)
+                st.success("✅ Login efetuado com sucesso! Salvando conexão...")
+                time.sleep(1.5)
+                st.rerun()
+            else:
+                st.rerun()
         else:
             st.error("Usuário ou senha incorretos.")
 
     st.stop()
+
 
 usuario_logado = st.session_state.usuario
 coluna_jogador = usuarios[usuario_logado]["coluna"]
