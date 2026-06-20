@@ -468,7 +468,7 @@ with aba_galera:
 
 with aba_estatisticas:
     st.subheader("📊 Estatísticas e Desempenho")
-    st.caption("Acompanhe a evolução dos pontos e os detalhes dos acertos de cada jogador.")
+    st.caption("Acompanhe a evolução cronológica dos pontos e o raio-x dos acertos de cada jogador.")
 
     def verifica_se_acabou(resultado):
         return pd.notna(resultado) and str(resultado).strip() != ""
@@ -476,23 +476,21 @@ with aba_estatisticas:
     df_encerrados = df_temp[df_temp["Resultado"].apply(verifica_se_acabou)].copy()
 
     if df_encerrados.empty:
-        st.info("Ainda não há jogos encerrados para gerar estatísticas. Volte após o primeiro jogo!")
-    else:
-        def criar_datetime_completo(row):
-            try:
-                return datetime.datetime.strptime(f"{row['Data']} {str(row['Horario']).strip()}", "%Y-%m-%d %H:%M")
-            except:
-                return datetime.datetime.max
+        st.info("Ainda não há jogos encerrados para gerar estatísticas. Volte após o primeiro jogo.")
         
-        if "Horario" in df_encerrados.columns and "Data" in df_encerrados.columns:
-            df_encerrados["_datetime"] = df_encerrados.apply(criar_datetime_completo, axis=1)
-            df_encerrados = df_encerrados.sort_values(by=["_datetime"], ascending=True)
+        horarios = df_encerrados.get("Horario", pd.Series(["00:00"] * len(df_encerrados)))
+        horarios = horarios.fillna("00:00").astype(str)
+        
+        df_encerrados["_data_hora_str"] = df_encerrados["Data"].astype(str) + " " + horarios
+        df_encerrados["_datetime"] = pd.to_datetime(df_encerrados["_data_hora_str"], errors="coerce")
+        
+        df_encerrados = df_encerrados.sort_values(by=["_datetime"], ascending=True)
 
         historico_pontos = {nome: [0] for nome in jogadores.keys()}
         labels_grafico = ["Início"]
         
         stats_jogadores = {
-            nome: {"Cravadas (10)": 0, "Saldos (6)": 0, "Vencedores (4)": 0, "Empates (4)": 0} 
+            nome: {"Cravadas (10)": 0, "Saldos (6)": 0, "Vencedores (4)": 0, "Empates (4)": 0, "Zerados (0)": 0} 
             for nome in jogadores.keys()
         }
 
@@ -500,7 +498,13 @@ with aba_estatisticas:
         for index, row in df_encerrados.iterrows():
             resultado = row["Resultado"]
             
-            labels_grafico.append(f"Jogo {contador_jogo}")
+            try:
+                data_string = str(row['Data'])
+                data_curta = f"{data_string[-2:]}/{data_string[-5:-3]}"
+            except:
+                data_curta = "Data?"
+                
+            labels_grafico.append(f"{contador_jogo}º ({data_curta})")
             contador_jogo += 1
 
             try:
@@ -515,7 +519,7 @@ with aba_estatisticas:
                 
                 pontuacao_acumulada = historico_pontos[nome][-1] + pts
                 historico_pontos[nome].append(pontuacao_acumulada)
-        
+                
                 if pts == 10:
                     stats_jogadores[nome]["Cravadas (10)"] += 1
                 elif pts == 6:
@@ -525,6 +529,8 @@ with aba_estatisticas:
                         stats_jogadores[nome]["Empates (4)"] += 1
                     else:
                         stats_jogadores[nome]["Vencedores (4)"] += 1
+                else:
+                    stats_jogadores[nome]["Zerados (0)"] += 1
 
         st.markdown("### 📈 Corrida dos Pontos")
         df_grafico = pd.DataFrame(historico_pontos)
@@ -534,16 +540,14 @@ with aba_estatisticas:
 
         st.divider()
 
-        st.markdown("### 🏅 Raio-X dos Acertos (Critérios de Desempate)")
-        st.caption("Quantidade de vezes que cada jogador pontuou em cada categoria.")
+        st.markdown("### 🏅 Raio-X dos Acertos ###")
+        st.caption("Quantidade de vezes que cada jogador pontuou em cada categoria, além dos erros (0 pontos).")
         
         df_stats = pd.DataFrame(stats_jogadores).T
-        
         df_stats["Pontos Totais"] = [historico_pontos[nome][-1] for nome in jogadores.keys()]
         
-        df_stats = df_stats[["Pontos Totais", "Cravadas (10)", "Saldos (6)", "Vencedores (4)", "Empates (4)"]]
-        
-        df_stats = df_stats.sort_values(by="Pontos Totais", ascending=False)
+        df_stats = df_stats[["Pontos Totais", "Cravadas (10)", "Saldos (6)", "Vencedores (4)", "Empates (4)", "Zerados (0)"]]
+        df_stats = df_stats.sort_values(by=["Pontos Totais", "Cravadas (10)"], ascending=[False, False])
         
         st.dataframe(df_stats, use_container_width=True)
             
