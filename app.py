@@ -1,6 +1,7 @@
 import pandas as pd
 import streamlit as st
 import datetime
+import time
 import gspread
 from google.oauth2.service_account import Credentials
 from zoneinfo import ZoneInfo
@@ -20,7 +21,11 @@ usuarios = {
     "hc": {"senha": "hczadas2209", "coluna": "Chutes_HC", "nome": "HC"},
 }
 
-cookie_manager = stx.CookieManager()
+@st.cache_resource
+def get_cookie_manager():
+    return stx.CookieManager()
+
+cookie_manager = get_cookie_manager()
 
 if "logado" not in st.session_state:
     st.session_state.logado = False
@@ -51,13 +56,14 @@ if not st.session_state.logado:
             
             if manter_login:
                 cookie_manager.set("usuario_bolao", usuario.lower(), key="cookie_set", max_age=2592000)
-
+            
+            st.success("✅ Login efetuado com sucesso! Entrando...")
+            time.sleep(1) 
             st.rerun()
         else:
             st.error("Usuário ou senha incorretos.")
 
     st.stop()
-
 
 usuario_logado = st.session_state.usuario
 coluna_jogador = usuarios[usuario_logado]["coluna"]
@@ -70,9 +76,7 @@ def sigla_para_bandeira(sigla):
     sigla = sigla.upper()
     return chr(ord(sigla[0]) + 127397) + chr(ord(sigla[1]) + 127397)
 
-
 def calculo_pontuacao(resultado_real, resultado_chutado):
-
     if pd.isna(resultado_real) or pd.isna(resultado_chutado):
         return 0
 
@@ -84,7 +88,6 @@ def calculo_pontuacao(resultado_real, resultado_chutado):
         gol_m_chutado, gol_v_chutado = map(
             int, str(resultado_chutado).lower().split("x")
         )
-
     except:
         return 0
 
@@ -108,18 +111,13 @@ def calculo_pontuacao(resultado_real, resultado_chutado):
     )
 
     if vencedor_real == vencedor_chutado:
-
         if vencedor_real == 0:
             return 4
-
         elif saldo_real == saldo_chutado:
             return 6
-
         else:
             return 4
-
     else:
-
         if (
             gol_m_real == gol_m_chutado
             or gol_v_real == gol_v_chutado
@@ -199,7 +197,6 @@ jogadores = {
 
 @st.cache_resource
 def conectar_planilha():
-
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets"
     ]
@@ -268,9 +265,11 @@ with col2:
     if st.button("Sair"):
         st.session_state.logado = False
         cookie_manager.delete("usuario_bolao", key="cookie_delete")
+        st.warning("Desconectando...")
+        time.sleep(1)
         st.rerun()
 
-edited_df = df_temp .copy()
+edited_df = df_temp.copy()
 
 pontos = {
     "Arthur": 0,
@@ -281,12 +280,10 @@ pontos = {
 }
 
 for nome, coluna_chute in jogadores.items():
-
     if (
         coluna_chute in edited_df.columns
         and "Resultado" in edited_df.columns
     ):
-
         pontos_por_jogo = edited_df.apply(
             lambda row: calculo_pontuacao(
                 row["Resultado"],
@@ -311,10 +308,8 @@ with aba_placar:
     c4.metric("MC", pontos["MC"])
     c5.metric("HC", pontos["HC"])
 
-
 with aba_palpites:
     st.subheader("🎯 Meus Palpites Atuais")
-    st.caption("Nota: A virada de dia no bolão acontece apenas às 5h da manhã. Jogos da madrugada pertencem ao dia anterior!")
     
     fuso_br = ZoneInfo("America/Sao_Paulo")
     agora_br_real = datetime.datetime.now(fuso_br)
@@ -389,7 +384,6 @@ with aba_palpites:
 
 with aba_galera:
     st.subheader("👥 Palpites da Galera")
-    st.caption("Selecione a rodada para acompanhar os palpites e as pontuações dos jogos que já começaram ou terminaram.")
 
     fuso_br = ZoneInfo("America/Sao_Paulo")
     agora_br = datetime.datetime.now(fuso_br)
@@ -420,10 +414,9 @@ with aba_galera:
     df_iniciados = df_temp.loc[indices_jogos_iniciados]
 
     if df_iniciados.empty:
-        st.info("🔒 Nenhum jogo começou ou foi encerrado ainda. Os palpites dos adversários serão revelados assim que as partidas iniciarem!")
-    
+        st.info("🔒 Nenhum jogo começou ou foi encerrado ainda.")
     else:
-        coluna_rodada = "Fase" if "Fase" in df_iniciados.columns else ("Fase" if "Fase" in df_iniciados.columns else None)
+        coluna_rodada = "Fase" if "Fase" in df_iniciados.columns else None
         
         if coluna_rodada:
             rodadas_disponiveis = sorted(df_iniciados[coluna_rodada].unique())
@@ -431,7 +424,6 @@ with aba_galera:
             
             jogos_para_exibir = df_iniciados[df_iniciados[coluna_rodada] == rodada_selecionada].copy()
         else:
-            st.warning("Aviso: Coluna 'Fase' não foi encontrada no Google Sheets.")
             jogos_para_exibir = df_iniciados.copy()
 
         def verifica_se_acabou(resultado):
@@ -483,7 +475,6 @@ with aba_galera:
 
 with aba_estatisticas:
     st.subheader("📊 Estatísticas e Desempenho")
-    st.caption("Acompanhe a evolução cronológica dos pontos e o raio-x dos acertos de cada jogador.")
 
     def verifica_se_acabou(resultado):
         return pd.notna(resultado) and str(resultado).strip() != ""
@@ -491,7 +482,7 @@ with aba_estatisticas:
     df_encerrados = df_temp[df_temp["Resultado"].apply(verifica_se_acabou)].copy()
 
     if df_encerrados.empty:
-        st.info("Ainda não há jogos encerrados para gerar estatísticas. Volte após o primeiro jogo.")
+        st.info("Ainda não há jogos encerrados.")
     else:
         horarios = df_encerrados.get("Horario", pd.Series(["00:00"] * len(df_encerrados)))
         horarios = horarios.fillna("00:00").astype(str)
@@ -556,7 +547,6 @@ with aba_estatisticas:
         st.divider()
 
         st.markdown("### 🏅 Raio-X dos Acertos")
-        st.caption("Quantidade de vezes que cada jogador pontuou em cada categoria, além dos erros (0 pontos).")
         
         df_stats = pd.DataFrame(stats_jogadores).T
         df_stats["Pontos Totais"] = [historico_pontos[nome][-1] for nome in jogadores.keys()]
@@ -566,11 +556,9 @@ with aba_estatisticas:
         
         st.dataframe(df_stats, use_container_width=True)
 
-            
 with aba_admin:
     if usuario_logado == "hc": 
         st.subheader("⚙️ Atualizar Resultados Oficiais")
-        st.warning("Área restrita. As alterações feitas aqui impactam o placar de todos os jogadores.")
         
         df_admin = df_temp[['Data', 'Equipe_Mandante', 'Equipe_Visitante', 'Resultado']].copy()
         
