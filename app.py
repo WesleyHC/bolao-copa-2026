@@ -477,7 +477,7 @@ with aba_estatisticas:
 
     if df_encerrados.empty:
         st.info("Ainda não há jogos encerrados para gerar estatísticas. Volte após o primeiro jogo.")
-        
+    else:    
         horarios = df_encerrados.get("Horario", pd.Series(["00:00"] * len(df_encerrados)))
         horarios = horarios.fillna("00:00").astype(str)
         
