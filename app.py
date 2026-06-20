@@ -284,7 +284,7 @@ for nome, coluna_chute in jogadores.items():
 
 st.divider()
 
-aba_placar, aba_palpites, aba_galera, aba_admin = st.tabs(["🏆 Placar Geral", "🎯 Meus Palpites", "👥 Palpites da Galera", "⚙️ Admin"])
+aba_placar, aba_palpites, aba_galera, aba_estatisticas, aba_admin = st.tabs(["🏆 Placar Geral", "🎯 Meus Palpites", "👥 Palpites da Galera", "📊 Estatísticas", "⚙️ Admin"])
 
 with aba_placar:
     st.subheader("🏆 Classificação")
@@ -465,6 +465,87 @@ with aba_galera:
                         st.metric(label=nome_part, value=str(valor_chute))
             
             st.divider()
+
+with aba_estatisticas:
+    st.subheader("📊 Estatísticas e Desempenho")
+    st.caption("Acompanhe a evolução dos pontos e os detalhes dos acertos de cada jogador.")
+
+    def verifica_se_acabou(resultado):
+        return pd.notna(resultado) and str(resultado).strip() != ""
+        
+    df_encerrados = df_temp[df_temp["Resultado"].apply(verifica_se_acabou)].copy()
+
+    if df_encerrados.empty:
+        st.info("Ainda não há jogos encerrados para gerar estatísticas. Volte após o primeiro jogo!")
+    else:
+        def criar_datetime_completo(row):
+            try:
+                return datetime.datetime.strptime(f"{row['Data']} {str(row['Horario']).strip()}", "%Y-%m-%d %H:%M")
+            except:
+                return datetime.datetime.max
+        
+        if "Horario" in df_encerrados.columns and "Data" in df_encerrados.columns:
+            df_encerrados["_datetime"] = df_encerrados.apply(criar_datetime_completo, axis=1)
+            df_encerrados = df_encerrados.sort_values(by=["_datetime"], ascending=True)
+
+        historico_pontos = {nome: [0] for nome in jogadores.keys()}
+        labels_grafico = ["Início"]
+        
+        stats_jogadores = {
+            nome: {"Cravadas (10)": 0, "Saldos (6)": 0, "Vencedores (4)": 0, "Empates (4)": 0} 
+            for nome in jogadores.keys()
+        }
+
+        contador_jogo = 1
+        for index, row in df_encerrados.iterrows():
+            resultado = row["Resultado"]
+            
+            labels_grafico.append(f"Jogo {contador_jogo}")
+            contador_jogo += 1
+
+            try:
+                g1_r, g2_r = map(int, str(resultado).lower().split("x"))
+                eh_empate_real = (g1_r == g2_r)
+            except:
+                eh_empate_real = False
+
+            for nome, col in jogadores.items():
+                chute = row.get(col, "")
+                pts = calculo_pontuacao(resultado, chute)
+                
+                pontuacao_acumulada = historico_pontos[nome][-1] + pts
+                historico_pontos[nome].append(pontuacao_acumulada)
+        
+                if pts == 10:
+                    stats_jogadores[nome]["Cravadas (10)"] += 1
+                elif pts == 6:
+                    stats_jogadores[nome]["Saldos (6)"] += 1
+                elif pts == 4:
+                    if eh_empate_real:
+                        stats_jogadores[nome]["Empates (4)"] += 1
+                    else:
+                        stats_jogadores[nome]["Vencedores (4)"] += 1
+
+        st.markdown("### 📈 Corrida dos Pontos")
+        df_grafico = pd.DataFrame(historico_pontos)
+        df_grafico.index = labels_grafico
+        
+        st.line_chart(df_grafico)
+
+        st.divider()
+
+        st.markdown("### 🏅 Raio-X dos Acertos (Critérios de Desempate)")
+        st.caption("Quantidade de vezes que cada jogador pontuou em cada categoria.")
+        
+        df_stats = pd.DataFrame(stats_jogadores).T
+        
+        df_stats["Pontos Totais"] = [historico_pontos[nome][-1] for nome in jogadores.keys()]
+        
+        df_stats = df_stats[["Pontos Totais", "Cravadas (10)", "Saldos (6)", "Vencedores (4)", "Empates (4)"]]
+        
+        df_stats = df_stats.sort_values(by="Pontos Totais", ascending=False)
+        
+        st.dataframe(df_stats, use_container_width=True)
             
 with aba_admin:
     if usuario_logado == "hc": 
