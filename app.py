@@ -41,7 +41,7 @@ if not st.session_state.logado:
     usuario = st.text_input("Usuário")
     senha = st.text_input("Senha", type="password")
     
-    manter_login = st.checkbox("Manter conectado por 30 dias")
+    manter_login = st.checkbox("Manter conectado")
 
     if st.button("Entrar"):
         if (
