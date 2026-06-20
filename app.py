@@ -41,7 +41,7 @@ if not st.session_state.logado:
     usuario = st.text_input("Usuário")
     senha = st.text_input("Senha", type="password")
     
-    manter_login = st.checkbox("Manter conectado")
+    manter_login = st.checkbox("Manter conectado por 30 dias")
 
     if st.button("Entrar"):
         if (
@@ -62,7 +62,6 @@ if not st.session_state.logado:
             st.error("Usuário ou senha incorretos.")
 
     st.stop()
-
 
 usuario_logado = st.session_state.usuario
 coluna_jogador = usuarios[usuario_logado]["coluna"]
@@ -179,6 +178,7 @@ mapa_siglas = {
     "Egito": "EG",
     "Escócia": "GB",
     "EUA": "US",
+    "Eua": "US",
     "Nova Zelândia": "NZ",
     "Paraguai": "PY",
     "Suécia": "SE",
@@ -228,6 +228,7 @@ def add_bandeira_mandante(nome):
         if nome_limpo == "Rd Congo": nome_limpo = "RD Congo"
         if nome_limpo == "África Do Sul": nome_limpo = "África do Sul"
         if nome_limpo == "Bósnia E Herzegovina": nome_limpo = "Bósnia e Herzegovina"
+        if nome_limpo.upper() == "EUA": nome_limpo = "EUA"
         
         if nome_limpo in mapa_siglas:
             sigla = mapa_siglas[nome_limpo]
@@ -243,6 +244,7 @@ def add_bandeira_visitante(nome):
         if nome_limpo == "Rd Congo": nome_limpo = "RD Congo"
         if nome_limpo == "África Do Sul": nome_limpo = "África do Sul"
         if nome_limpo == "Bósnia E Herzegovina": nome_limpo = "Bósnia e Herzegovina"
+        if nome_limpo.upper() == "EUA": nome_limpo = "EUA"
         
         if nome_limpo in mapa_siglas:
             sigla = mapa_siglas[nome_limpo]
@@ -308,22 +310,38 @@ with aba_placar:
     c5.metric("HC", pontos["HC"])
 
 with aba_palpites:
-    st.subheader("🎯 Meus Palpites Atuais")
+    st.subheader("🎯 Meus Palpites")
+    st.caption("Nota: A virada de dia no bolão acontece à 1h da manhã.")
     
     fuso_br = ZoneInfo("America/Sao_Paulo")
     agora_br_real = datetime.datetime.now(fuso_br)
+    
     agora_virtual = agora_br_real - datetime.timedelta(hours=1)
     data_hoje_virtual = agora_virtual.strftime("%Y-%m-%d")
+    data_amanha_virtual = (agora_virtual + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
     
-    jogos_hoje = df_temp[df_temp["Data"] == data_hoje_virtual]
+    filtro_dia = st.radio(
+        "📅 Filtrar jogos por data:", 
+        options=["Hoje", "Amanhã", "Ambos"], 
+        horizontal=True
+    )
 
-    if jogos_hoje.empty:
-        st.info(f"Nenhum jogo programado para hoje ({data_hoje_virtual}).")
+    if filtro_dia == "Hoje":
+        datas_filtro = [data_hoje_virtual]
+    elif filtro_dia == "Amanhã":
+        datas_filtro = [data_amanha_virtual]
+    else:
+        datas_filtro = [data_hoje_virtual, data_amanha_virtual]
+    
+    jogos_ativos = df_temp[df_temp["Data"].isin(datas_filtro)]
+
+    if jogos_ativos.empty:
+        st.info("Nenhum jogo programado para a seleção atual.")
     else:
         with st.form("form_palpites"):
             novos_chutes = {}
             
-            for index, jogo in jogos_hoje.iterrows():
+            for index, jogo in jogos_ativos.iterrows():
                 st.markdown(f"### {jogo['Equipe_Mandante']} x {jogo['Equipe_Visitante']}")
                 jogo_ja_comecou = False
                 
@@ -342,7 +360,13 @@ with aba_palpites:
                 if jogo_ja_comecou:
                     st.caption("🔒 **Jogo já iniciado ou encerrado.**")
                 else:
-                    st.caption(f"⏰ Horário do jogo: {jogo['Horario']}")
+                    try:
+                        data_string = str(jogo['Data'])
+                        data_curta = f"{data_string[-2:]}/{data_string[-5:-3]}"
+                    except:
+                        data_curta = jogo['Data']
+                        
+                    st.caption(f"📅 Data: {data_curta} | ⏰ Horário: {jogo['Horario']}")
 
                 chute_atual = jogo[coluna_jogador]
                 
@@ -379,7 +403,7 @@ with aba_palpites:
                     st.cache_resource.clear()
                     st.rerun()
                 else:
-                    st.warning("Todos os jogos de hoje já começaram. Não há palpites novos para salvar.")
+                    st.warning("Todos os jogos filtrados já começaram. Não há palpites novos para salvar.")
 
 with aba_galera:
     st.subheader("👥 Palpites da Galera")
@@ -432,16 +456,16 @@ with aba_galera:
         
         jogos_para_exibir = jogos_para_exibir.sort_values(by=["_encerrado"], ascending=True)
         
-        for index, jogo in jogos_para_exibir.iterrows():
-            st.markdown(f"### {jogo['Equipe_Mandante']} x {jogo['Equipe_Visitante']}")
+        for index, Urban_joke in jogos_para_exibir.iterrows():
+            st.markdown(f"### {Urban_joke['Equipe_Mandante']} x {Urban_joke['Equipe_Visitante']}")
             
-            resultado_oficial = jogo.get("Resultado", "")
+            resultado_oficial = Urban_joke.get("Resultado", "")
             tem_resultado = pd.notna(resultado_oficial) and str(resultado_oficial).strip() != ""
 
             if tem_resultado:
                 st.markdown(f"Placar oficial: **{resultado_oficial}**")
             else:
-                st.caption(f"📅 Data: {jogo['Data']} | ⏰ Horário: {jogo.get('Horario', '-')} | 🟢 **Em andamento**")
+                st.caption(f"📅 Data: {Urban_joke['Data']} | ⏰ Horário: {Urban_joke.get('Horario', '-')} | 🟢 **Em andamento**")
 
             cols_profs = st.columns(5)
             
@@ -455,7 +479,7 @@ with aba_galera:
 
             for i, (nome_part, col_part) in enumerate(participantes):
                 with cols_profs[i]:
-                    valor_chute = jogo[col_part] if pd.notna(jogo[col_part]) and str(jogo[col_part]).strip() != "" else "-"
+                    valor_chute = Urban_joke[col_part] if pd.notna(Urban_joke[col_part]) and str(Urban_joke[col_part]).strip() != "" else "-"
                     
                     if tem_resultado and valor_chute != "-":
                         pontos_ganhos = calculo_pontuacao(resultado_oficial, valor_chute)
@@ -582,7 +606,7 @@ with aba_admin:
                     alteracoes_feitas += 1
             
             if alteracoes_feitas > 0:
-                st.success(f"{alteracoes_feitas} resultado(s) atualizado(s) com sucesso!")
+                st.success(f"{alteracoes_feitas} resultado(s) updated com sucesso!")
                 st.cache_resource.clear()
                 st.rerun()
             else:
