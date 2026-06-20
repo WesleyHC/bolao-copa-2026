@@ -477,7 +477,7 @@ with aba_estatisticas:
 
     if df_encerrados.empty:
         st.info("Ainda não há jogos encerrados para gerar estatísticas. Volte após o primeiro jogo.")
-    else:    
+    else:
         horarios = df_encerrados.get("Horario", pd.Series(["00:00"] * len(df_encerrados)))
         horarios = horarios.fillna("00:00").astype(str)
         
@@ -487,7 +487,7 @@ with aba_estatisticas:
         df_encerrados = df_encerrados.sort_values(by=["_datetime"], ascending=True)
 
         historico_pontos = {nome: [0] for nome in jogadores.keys()}
-        labels_grafico = ["Início"]
+        labels_grafico = ["Jogo 000 (Início)"]
         
         stats_jogadores = {
             nome: {"Cravadas (10)": 0, "Saldos (6)": 0, "Vencedores (4)": 0, "Empates (4)": 0, "Zerados (0)": 0} 
@@ -504,7 +504,7 @@ with aba_estatisticas:
             except:
                 data_curta = "Data?"
                 
-            labels_grafico.append(f"{contador_jogo}º ({data_curta})")
+            labels_grafico.append(f"Jogo {contador_jogo:03d} ({data_curta})")
             contador_jogo += 1
 
             try:
@@ -540,7 +540,7 @@ with aba_estatisticas:
 
         st.divider()
 
-        st.markdown("### 🏅 Raio-X dos Acertos ###")
+        st.markdown("### 🏅 Raio-X dos Acertos")
         st.caption("Quantidade de vezes que cada jogador pontuou em cada categoria, além dos erros (0 pontos).")
         
         df_stats = pd.DataFrame(stats_jogadores).T
@@ -550,6 +550,7 @@ with aba_estatisticas:
         df_stats = df_stats.sort_values(by=["Pontos Totais", "Cravadas (10)"], ascending=[False, False])
         
         st.dataframe(df_stats, use_container_width=True)
+
             
 with aba_admin:
     if usuario_logado == "hc": 
