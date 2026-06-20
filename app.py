@@ -296,17 +296,20 @@ with aba_placar:
     c4.metric("MC", pontos["MC"])
     c5.metric("HC", pontos["HC"])
 
+
 with aba_palpites:
-    st.subheader("🎯 Meus Palpites de Hoje")
+    st.subheader("🎯 Meus Palpites Atuais")
+    st.caption("Nota: A virada de dia no bolão acontece apenas às 5h da manhã. Jogos da madrugada pertencem ao dia anterior!")
     
     fuso_br = ZoneInfo("America/Sao_Paulo")
-    agora_br = datetime.datetime.now(fuso_br)
-    data_hoje = agora_br.strftime("%Y-%m-%d")
+    agora_br_real = datetime.datetime.now(fuso_br)
+    agora_virtual = agora_br_real - datetime.timedelta(hours=5)
+    data_hoje_virtual = agora_virtual.strftime("%Y-%m-%d")
     
-    jogos_hoje = df_temp[df_temp["Data"] == data_hoje]
+    jogos_hoje = df_temp[df_temp["Data"] == data_hoje_virtual]
 
     if jogos_hoje.empty:
-        st.info(f"Nenhum jogo programado para hoje ({data_hoje}).")
+        st.info(f"Nenhum jogo programado para hoje ({data_hoje_virtual}).")
     else:
         with st.form("form_palpites"):
             novos_chutes = {}
@@ -320,10 +323,9 @@ with aba_palpites:
                         string_data_hora = f"{jogo['Data']} {str(jogo['Horario']).strip()}"
                         
                         data_hora_jogo = datetime.datetime.strptime(string_data_hora, "%Y-%m-%d %H:%M")
-                        
                         data_hora_jogo = data_hora_jogo.replace(tzinfo=fuso_br)
                         
-                        if agora_br >= data_hora_jogo:
+                        if agora_br_real >= data_hora_jogo:
                             jogo_ja_comecou = True
                     except:
                         pass
