@@ -16,7 +16,7 @@ usuarios = {
     "coelho": {"senha": "coelho123", "coluna": "Chutes_Cu", "nome": "Coelho"},
     "feto": {"senha": "feto123", "coluna": "Chutes_Feto", "nome": "Feto"},
     "mc": {"senha": "mc123", "coluna": "Chutes_MC", "nome": "MC"},
-    "hc": {"senha": "hc123", "coluna": "Chutes_HC", "nome": "HC"},
+    "hc": {"senha": "hczadas2209", "coluna": "Chutes_HC", "nome": "HC"},
 }
 
 if "logado" not in st.session_state:
