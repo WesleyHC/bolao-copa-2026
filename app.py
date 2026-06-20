@@ -312,7 +312,7 @@ with aba_palpites:
     
     fuso_br = ZoneInfo("America/Sao_Paulo")
     agora_br_real = datetime.datetime.now(fuso_br)
-    agora_virtual = agora_br_real - datetime.timedelta(hours=5)
+    agora_virtual = agora_br_real - datetime.timedelta(hours=1)
     data_hoje_virtual = agora_virtual.strftime("%Y-%m-%d")
     
     jogos_hoje = df_temp[df_temp["Data"] == data_hoje_virtual]
