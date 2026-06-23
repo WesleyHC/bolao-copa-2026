@@ -408,7 +408,7 @@ with aba_palpites:
                         time.sleep(1)
 
                     st.success("✅ Palpites enviados e confirmados com sucesso!")
-                    time.sleep(2) 
+                    time.sleep(5) 
                     st.cache_resource.clear()
                     st.rerun()
                 else:
