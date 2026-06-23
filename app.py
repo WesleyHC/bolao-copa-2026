@@ -311,7 +311,14 @@ with aba_placar:
 
 with aba_palpites:
     st.subheader("🎯 Meus Palpites")
-    st.caption("Nota: A virada de dia no bolão acontece à 1h da manhã.")
+    st.info("""
+    **🚨 REGRAS IMPORTANTES PARA PALPITAR:**
+    * ⏳ **Aguarde a confirmação:** Ao clicar em salvar, não feche o app ou mude de tela! Espere a caixinha terminar de carregar e mostrar o aviso verde de sucesso.
+    * 🔒 **Horário limite:** Você pode mudar seu palpite quantas vezes quiser, mas a edição é bloqueada no exato minuto em que o jogo começa.
+    * 🔄 **Atualize a página:** Se você deixou o site aberto em segundo plano no celular por muito tempo, atualize a página antes de salvar para evitar erros de conexão.
+    * 🌙 **Virada do dia:** O nosso calendário vira o dia oficial do bolão sempre à 1h da manhã.
+    """)
+
     
     fuso_br = ZoneInfo("America/Sao_Paulo")
     agora_br_real = datetime.datetime.now(fuso_br)
