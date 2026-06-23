@@ -393,17 +393,28 @@ with aba_palpites:
 
             if salvar:
                 if novos_chutes:
-                    sheet = conectar_planilha()
-                    for idx, chute in novos_chutes.items():
-                        linha_planilha = idx + 2
+                    with st.spinner("⏳ Salvando palpites... Por favor, não feche a tela!"):
+                        sheet = conectar_planilha()
+                        
+                        celulas_para_atualizar = []
                         coluna_planilha = st.session_state.df.columns.get_loc(coluna_jogador) + 1
-                        sheet.update_cell(linha_planilha, coluna_planilha, chute)
+                        
+                        for idx, chute in novos_chutes.items():
+                            linha_planilha = idx + 2
+                            celulas_para_atualizar.append(
+                                gspread.Cell(row=linha_planilha, col=coluna_planilha, value=chute)
+                            )
+                        
+                        sheet.update_cells(celulas_para_atualizar)
 
-                    st.success("Palpites enviados com sucesso!")
+                    st.success("✅ Palpites enviados e confirmados com sucesso!")
+                    time.sleep(1.5) 
+                    
                     st.cache_resource.clear()
                     st.rerun()
                 else:
                     st.warning("Todos os jogos filtrados já começaram. Não há palpites novos para salvar.")
+
 
 with aba_galera:
     st.subheader("👥 Palpites da Galera")
