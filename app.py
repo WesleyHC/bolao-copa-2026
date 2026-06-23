@@ -388,13 +388,11 @@ with aba_palpites:
                     novos_chutes[index] = f"{gol_casa}x{gol_fora}"
                 
                 st.divider()
-            
 
             salvar = st.form_submit_button("💾 Salvar Palpites")
 
             if salvar:
                 if novos_chutes:
-                    # 1. Usamos a caixa de status nativa do Streamlit (Fica muito mais bonito e não buga a tela)
                     with st.status("⏳ Salvando no banco de dados...", expanded=True) as status:
                         st.write("Empacotando seus palpites...")
                         sheet = conectar_planilha()
@@ -411,47 +409,12 @@ with aba_palpites:
                         
                         sheet.update_cells(celulas_para_atualizar)
                         
-                        # Atualiza a caixa para a mensagem verde de sucesso e fecha ela
                         status.update(label="✅ Palpites confirmados com sucesso!", state="complete", expanded=False)
 
-                    # 2. REMOVEMOS o st.rerun() e o HTML que quebrava o site!
-                    # Você não será mais jogado para a Aba de Placar ao salvar.
                     st.cache_resource.clear()
                     
                 else:
                     st.warning("Todos os jogos filtrados já começaram. Não há palpites novos para salvar.")
-            salvar = st.form_submit_button("💾 Salvar Palpites")
-
-            if salvar:
-                if novos_chutes:
-                    # 1. Usamos a caixa de status nativa do Streamlit (Fica muito mais bonito e não buga a tela)
-                    with st.status("⏳ Salvando no banco de dados...", expanded=True) as status:
-                        st.write("Empacotando seus palpites...")
-                        sheet = conectar_planilha()
-                        
-                        celulas_para_atualizar = []
-                        coluna_planilha = st.session_state.df.columns.get_loc(coluna_jogador) + 1
-                        
-                        st.write("Enviando para o Google Sheets...")
-                        for idx, chute in novos_chutes.items():
-                            linha_planilha = idx + 2
-                            celulas_para_atualizar.append(
-                                gspread.Cell(row=linha_planilha, col=coluna_planilha, value=chute)
-                            )
-                        
-                        sheet.update_cells(celulas_para_atualizar)
-                        
-                        # Atualiza a caixa para a mensagem verde de sucesso e fecha ela
-                        status.update(label="✅ Palpites confirmados com sucesso!", state="complete", expanded=False)
-
-                    # 2. REMOVEMOS o st.rerun() e o HTML que quebrava o site!
-                    # Você não será mais jogado para a Aba de Placar ao salvar.
-                    st.cache_resource.clear()
-                    
-                else:
-                    st.warning("Todos os jogos filtrados já começaram. Não há palpites novos para salvar.")
-
-
 
 with aba_galera:
     st.subheader("👥 Palpites da Galera")
@@ -661,3 +624,4 @@ with aba_admin:
                 st.info("Nenhuma alteração detectada para salvar.")
     else:
         st.error("Você não tem permissão para acessar esta área.")
+
