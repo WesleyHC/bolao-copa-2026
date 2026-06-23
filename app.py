@@ -388,32 +388,68 @@ with aba_palpites:
                     novos_chutes[index] = f"{gol_casa}x{gol_fora}"
                 
                 st.divider()
+            
 
             salvar = st.form_submit_button("💾 Salvar Palpites")
 
             if salvar:
                 if novos_chutes:
-                    with st.spinner("⏳ Salvando palpites... Por favor, não feche a tela!"):
-                        sheet = conectar_planilha()
-                        celulas_para_atualizar = []
-                        coluna_planilha = st.session_state.df.columns.get_loc(coluna_jogador) + 1
-                        
-                        for idx, chute in novos_chutes.items():
-                            linha_planilha = idx + 2
-                            celulas_para_atualizar.append(
-                                gspread.Cell(row=linha_planilha, col=coluna_planilha, value=chute)
-                            )
-                        
-                        sheet.update_cells(celulas_para_atualizar)
-                        time.sleep(1)
-
-                    st.success("✅ Palpites enviados e confirmados com sucesso!")
+                    # 1. Cria o visual da janela pop-up gigante no centro da tela
+                    html_modal = """
+                    <style>
+                    .fundo-escuro {
+                        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+                        background-color: rgba(0, 0, 0, 0.85); z-index: 99999;
+                        display: flex; justify-content: center; align-items: center;
+                    }
+                    .caixa-aviso {
+                        background-color: #1E1E1E; padding: 40px; border-radius: 15px;
+                        text-align: center; border: 2px solid #4CAF50;
+                        box-shadow: 0 0 20px rgba(76, 175, 80, 0.5); width: 80%; max-width: 400px;
+                    }
+                    .relogio-girando {
+                        border: 8px solid #333; border-top: 8px solid #4CAF50;
+                        border-radius: 50%; width: 60px; height: 60px;
+                        animation: giro 1s linear infinite; margin: 0 auto 20px auto;
+                    }
+                    @keyframes giro { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                    .texto-principal { color: white; font-size: 20px; font-family: sans-serif; margin-bottom: 15px;}
+                    .texto-alerta { color: #ff4b4b; font-weight: bold; font-size: 16px; }
+                    </style>
+                    
+                    <div class="fundo-escuro">
+                        <div class="caixa-aviso">
+                            <div class="relogio-girando"></div>
+                            <div class="texto-principal"><b>Salvando no Banco de Dados...</b></div>
+                            <div class="texto-alerta">⚠️ ATENÇÃO: NÃO FECHE OU ATUALIZE ESTA TELA!</div>
+                        </div>
+                    </div>
+                    """
+                    
+                    # 2. Injeta a janela na tela do usuário instantaneamente
+                    st.markdown(html_modal, unsafe_allow_html=True)
+                    
+                    # 3. Faz o salvamento turbo no Google Sheets
+                    sheet = conectar_planilha()
+                    celulas_para_atualizar = []
+                    coluna_planilha = st.session_state.df.columns.get_loc(coluna_jogador) + 1
+                    
+                    for idx, chute in novos_chutes.items():
+                        linha_planilha = idx + 2
+                        celulas_para_atualizar.append(
+                            gspread.Cell(row=linha_planilha, col=coluna_planilha, value=chute)
+                        )
+                    
+                    sheet.update_cells(celulas_para_atualizar)
+                    
+                    # 4. Trava a tela exibindo a mensagem por exatos 5 segundos
                     time.sleep(5) 
+
+                    # 5. Limpa a tela e reinicia o site
                     st.cache_resource.clear()
                     st.rerun()
                 else:
                     st.warning("Todos os jogos filtrados já começaram. Não há palpites novos para salvar.")
-
 
 
 with aba_galera:
