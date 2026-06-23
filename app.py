@@ -395,7 +395,6 @@ with aba_palpites:
                 if novos_chutes:
                     with st.spinner("⏳ Salvando palpites... Por favor, não feche a tela!"):
                         sheet = conectar_planilha()
-                        
                         celulas_para_atualizar = []
                         coluna_planilha = st.session_state.df.columns.get_loc(coluna_jogador) + 1
                         
@@ -406,14 +405,15 @@ with aba_palpites:
                             )
                         
                         sheet.update_cells(celulas_para_atualizar)
+                        time.sleep(1)
 
                     st.success("✅ Palpites enviados e confirmados com sucesso!")
-                    time.sleep(1.5) 
-                    
+                    time.sleep(2) 
                     st.cache_resource.clear()
                     st.rerun()
                 else:
                     st.warning("Todos os jogos filtrados já começaram. Não há palpites novos para salvar.")
+
 
 
 with aba_galera:
