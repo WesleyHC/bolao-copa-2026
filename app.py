@@ -393,14 +393,14 @@ with aba_palpites:
 
             if salvar:
                 if novos_chutes:
-                    with st.status("⏳ Salvando no banco de dados...", expanded=True) as status:
+                    with st.status("⏳ Salvando de forma segura...", expanded=True) as status:
                         st.write("Empacotando seus palpites...")
                         sheet = conectar_planilha()
                         
                         celulas_para_atualizar = []
                         coluna_planilha = st.session_state.df.columns.get_loc(coluna_jogador) + 1
                         
-                        st.write("Enviando para o Google Sheets...")
+                        st.write("Enviando para o banco de dados...")
                         for idx, chute in novos_chutes.items():
                             linha_planilha = idx + 2
                             celulas_para_atualizar.append(
@@ -408,6 +408,9 @@ with aba_palpites:
                             )
                         
                         sheet.update_cells(celulas_para_atualizar)
+                        
+                        st.write("Garantindo a conexão... (Não feche a tela)")
+                        time.sleep(6)
                         
                         status.update(label="✅ Palpites confirmados com sucesso!", state="complete", expanded=False)
 
