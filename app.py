@@ -162,7 +162,7 @@ def tem_resultado(resultado) -> bool:
     return pd.notna(resultado) and str(resultado).strip() != ""
 
 # ── Conexão com a planilha ─────────────────────────────────────────────────────
-@st.cache_resource
+@st.cache_resource(ttl=3600)
 def conectar_planilha():
     scopes = ["https://www.googleapis.com/auth/spreadsheets"]
     creds  = Credentials.from_service_account_info(
