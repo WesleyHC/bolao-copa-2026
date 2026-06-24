@@ -13,17 +13,8 @@ st.set_page_config(
     layout="wide",
 )
 
-# ── Fuso horário global ────────────────────────────────────────────────────────
 fuso_br = ZoneInfo("America/Sao_Paulo")
 
-# ── Usuários ───────────────────────────────────────────────────────────────────
-# ⚠️  RECOMENDADO: mova as senhas para .streamlit/secrets.toml
-# Exemplo de secrets.toml:
-#   [usuarios.arthur]
-#   senha  = "arthur123"
-#   coluna = "Chutes_Art"
-#   nome   = "Arthur"
-# E acesse com: usuarios = dict(st.secrets["usuarios"])
 usuarios = {
     "arthur": {"senha": "arthur123", "coluna": "Chutes_Art",  "nome": "Arthur"},
     "coelho": {"senha": "coelho123", "coluna": "Chutes_Cu",   "nome": "Coelho"},
@@ -354,15 +345,11 @@ with aba_palpites:
 
                         sheet.update_cells(celulas_para_atualizar)
 
-                        st.write("Garantindo a conexão... (Não feche a tela)")
-                        time.sleep(6)
-                        status.update(
-                            label="✅ Palpites confirmados com sucesso!",
-                            state="complete",
-                            expanded=False,
-                        )
-
-                    st.cache_data.clear()  # ← limpa só cache de dados, preserva a conexão
+                        time.sleep(1)
+                        status.update(label="✅ Palpites confirmados com sucesso!", state="complete", expanded=False)
+                        
+                        st.cache_data.clear()
+                        st.rerun()
                 else:
                     st.warning("Todos os jogos filtrados já começaram. Não há palpites novos para salvar.")
 
