@@ -343,7 +343,16 @@ with aba_palpites:
                                 )
                             )
 
-                        sheet.update_cells(celulas_para_atualizar)
+                        try:
+                            sheet.update_cells(celulas_para_atualizar)
+                            time.sleep(1)
+                            status.update(label="✅ Palpites confirmados!", state="complete", expanded=False)
+                            st.cache_data.clear()
+                            st.rerun()
+                        except Exception as e:
+                            status.update(label="❌ Erro ao salvar!", state="error", expanded=True)
+                            st.error("Não foi possível salvar. Tente novamente ou atualize a página.")
+                            st.exception(e)
 
                         time.sleep(1)
                         status.update(label="✅ Palpites confirmados com sucesso!", state="complete", expanded=False)
