@@ -207,12 +207,32 @@ with col2:
         st.rerun()
 
 # ── Pontuação geral ────────────────────────────────────────────────────────────
-pontos = {nome: 0 for nome in jogadores}
+pontos_geral = {nome: 0 for nome in jogadores}
+pontos_grupos = {nome: 0 for nome in jogadores}
+pontos_matamata = {nome: 0 for nome in jogadores}
+
+# Termos que identificam o mata-mata na coluna Fase
+termos_matamata = ["16", "oitava", "quarta", "semi", "final", "3º", "terceiro"]
+
+def is_matamata(fase_val):
+    if pd.isna(fase_val):
+        return False
+    fase_str = str(fase_val).lower()
+    return any(termo in fase_str for termo in termos_matamata)
+
 for nome, col_chute in jogadores.items():
     if col_chute in df_temp.columns and "Resultado" in df_temp.columns:
-        pontos[nome] = df_temp.apply(
-            lambda row: calculo_pontuacao(row["Resultado"], row[col_chute]), axis=1
-        ).sum()
+        for index, row in df_temp.iterrows():
+            pts = calculo_pontuacao(row["Resultado"], row[col_chute])
+            
+            # Soma no placar geral
+            pontos_geral[nome] += pts
+            
+            # Separa entre grupos e mata-mata
+            if "Fase" in df_temp.columns and is_matamata(row["Fase"]):
+                pontos_matamata[nome] += pts
+            else:
+                pontos_grupos[nome] += pts
 
 st.divider()
 
@@ -223,13 +243,30 @@ aba_placar, aba_palpites, aba_galera, aba_estatisticas, aba_admin = st.tabs(
 
 # ────────────────────────────────────────────────────────────────────────────────
 with aba_placar:
-    st.subheader("🏆 Classificação")
+    # Placar Geral
+    st.subheader("🏆 Placar Geral")
+    ranking_geral = sorted(pontos_geral.items(), key=lambda x: x[1], reverse=True)
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Arthur", pontos["Arthur"])
-    c2.metric("Coelho", pontos["Coelho"])
-    c3.metric("Feto",   pontos["Feto"])
-    c4.metric("MC",     pontos["MC"])
-    c5.metric("HC",     pontos["HC"])
+    for i, (nome, pts) in enumerate(ranking_geral):
+        [c1, c2, c3, c4, c5][i].metric(f"{i+1}º - {nome}", f"{pts} pts")
+
+    st.divider()
+
+    # Placar Fase de Grupos
+    st.subheader("⚽ Placar da Fase de Grupos")
+    ranking_grupos = sorted(pontos_grupos.items(), key=lambda x: x[1], reverse=True)
+    c1, c2, c3, c4, c5 = st.columns(5)
+    for i, (nome, pts) in enumerate(ranking_grupos):
+        [c1, c2, c3, c4, c5][i].metric(f"{i+1}º - {nome}", f"{pts} pts")
+
+    st.divider()
+
+    # Placar Mata-Mata
+    st.subheader("🔥 Placar do Mata-Mata")
+    ranking_mata = sorted(pontos_matamata.items(), key=lambda x: x[1], reverse=True)
+    c1, c2, c3, c4, c5 = st.columns(5)
+    for i, (nome, pts) in enumerate(ranking_mata):
+        [c1, c2, c3, c4, c5][i].metric(f"{i+1}º - {nome}", f"{pts} pts")
 
 # ────────────────────────────────────────────────────────────────────────────────
 with aba_palpites:
