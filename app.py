@@ -105,6 +105,14 @@ _SUBSTITUICOES_NOME = {
     "Bósnia E Herzegovina": "Bósnia e Herzegovina",
 }
 
+termos_matamata = ["16", "oitava", "quarta", "semi", "final", "3º", "terceiro"]
+
+def is_matamata(fase_val):
+    if pd.isna(fase_val):
+        return False
+    fase_str = str(fase_val).lower()
+    return any(termo in fase_str for termo in termos_matamata)
+
 def normalizar_nome(nome: str) -> str:
     nome_limpo = str(nome).strip().title()
     nome_limpo = _SUBSTITUICOES_NOME.get(nome_limpo, nome_limpo)
@@ -119,10 +127,6 @@ def sigla_para_bandeira(sigla: str) -> str:
     return chr(ord(sigla[0]) + 127397) + chr(ord(sigla[1]) + 127397)
 
 def add_bandeira(nome, posicao: str = "mandante") -> str:
-    """Retorna nome da equipe com emoji de bandeira.
-    posicao='mandante'  → 'Brasil 🇧🇷'
-    posicao='visitante' → '🇧🇷 Brasil'
-    """
     if pd.isna(nome):
         return nome
     nome_limpo = normalizar_nome(nome)
@@ -131,32 +135,63 @@ def add_bandeira(nome, posicao: str = "mandante") -> str:
         return f"{nome_limpo} {bandeira}" if posicao == "mandante" else f"{bandeira} {nome_limpo}"
     return nome
 
-def calculo_pontuacao(resultado_real, resultado_chutado) -> int:
-    if pd.isna(resultado_real) or pd.isna(resultado_chutado):
-        return 0
+def parse_placar(placar_str):
+    """Extrai gols e vencedor dos pênaltis de uma string como '1x1-m'."""
+    if pd.isna(placar_str): return None, None, None
+    s = str(placar_str).strip().lower()
+    if not s: return None, None, None
+    
+    penaltis = None
+    if "-" in s:
+        partes = s.split("-")
+        s = partes[0]
+        penaltis = partes[1].strip() # 'm' ou 'v'
+        
     try:
-        gol_m_real,    gol_v_real    = map(int, str(resultado_real).lower().split("x"))
-        gol_m_chutado, gol_v_chutado = map(int, str(resultado_chutado).lower().split("x"))
+        g1, g2 = map(int, s.split("x"))
+        return g1, g2, penaltis
     except Exception:
+        return None, None, None
+
+def formatar_chute_tela(chute_str):
+    """Transforma '1x1-m' em '1x1 (M)' para exibir bonitinho na tela."""
+    if not pd.notna(chute_str) or str(chute_str).strip() == "": return "-"
+    s = str(chute_str).upper()
+    if "-M" in s: return s.replace("-M", " (M)")
+    if "-V" in s: return s.replace("-V", " (V)")
+    return s
+
+def calculo_pontuacao(resultado_real, resultado_chutado) -> int:
+    g1_r, g2_r, pen_r = parse_placar(resultado_real)
+    g1_c, g2_c, pen_c = parse_placar(resultado_chutado)
+
+    if g1_r is None or g1_c is None:
         return 0
 
-    if gol_m_real == gol_m_chutado and gol_v_real == gol_v_chutado:
-        return 10
+    pontos = 0
+    # Acerto de placar exato
+    if g1_r == g1_c and g2_r == g2_c:
+        pontos = 10
+    else:
+        saldo_real    = g1_r - g2_r
+        saldo_chutado = g1_c - g2_c
 
-    saldo_real    = gol_m_real    - gol_v_real
-    saldo_chutado = gol_m_chutado - gol_v_chutado
+        vencedor_real    = 1 if saldo_real > 0 else (-1 if saldo_real < 0 else 0)
+        vencedor_chutado = 1 if saldo_chutado > 0 else (-1 if saldo_chutado < 0 else 0)
 
-    vencedor_real    = 1 if saldo_real    > 0 else (-1 if saldo_real    < 0 else 0)
-    vencedor_chutado = 1 if saldo_chutado > 0 else (-1 if saldo_chutado < 0 else 0)
+        if vencedor_real == vencedor_chutado:
+            if vencedor_real == 0:          # empate certo
+                pontos = 4
+            elif saldo_real == saldo_chutado:  # saldo de gols certo
+                pontos = 6
+            else:                           # só vencedor certo
+                pontos = 4
 
-    if vencedor_real == vencedor_chutado:
-        if vencedor_real == 0:          # empate certo
-            return 4
-        elif saldo_real == saldo_chutado:  # saldo de gols certo
-            return 6
-        else:                           # só vencedor certo
-            return 4
-    return 0
+    # Bônus de pênaltis (+3 pontos) se for empate e acertar quem passa
+    if pen_r is not None and pen_r == pen_c:
+        pontos += 3
+
+    return pontos
 
 def tem_resultado(resultado) -> bool:
     return pd.notna(resultado) and str(resultado).strip() != ""
@@ -172,16 +207,11 @@ def conectar_planilha():
     planilha = cliente.open_by_key("1HEjaWHU-Oz9gECeBQvAxWczfvtuzqD4MruZ7doiHvkw")
     return planilha.sheet1
 
-# ── Carregamento dos dados (com TTL curto para manter dados frescos) ───────────
+# ── Carregamento dos dados ─────────────────────────────────────────────────────
 @st.cache_data(ttl=60)
 def carregar_dados(_sheet):
-    """Carrega os registros e adiciona _row_num = linha real na planilha.
-    Isso garante que o salvamento sempre aponte para a linha correta,
-    independente de filtragens ou reordenações no DataFrame.
-    """
     dados = _sheet.get_all_records()
     df = pd.DataFrame(dados)
-    # Linha 1 = cabeçalho → dados começam na linha 2
     df["_row_num"] = range(2, len(df) + 2)
     return df
 
@@ -211,24 +241,11 @@ pontos_geral = {nome: 0 for nome in jogadores}
 pontos_grupos = {nome: 0 for nome in jogadores}
 pontos_matamata = {nome: 0 for nome in jogadores}
 
-# Termos que identificam o mata-mata na coluna Fase
-termos_matamata = ["16", "oitava", "quarta", "semi", "final", "3º", "terceiro"]
-
-def is_matamata(fase_val):
-    if pd.isna(fase_val):
-        return False
-    fase_str = str(fase_val).lower()
-    return any(termo in fase_str for termo in termos_matamata)
-
 for nome, col_chute in jogadores.items():
     if col_chute in df_temp.columns and "Resultado" in df_temp.columns:
         for index, row in df_temp.iterrows():
             pts = calculo_pontuacao(row["Resultado"], row[col_chute])
-            
-            # Soma no placar geral
             pontos_geral[nome] += pts
-            
-            # Separa entre grupos e mata-mata
             if "Fase" in df_temp.columns and is_matamata(row["Fase"]):
                 pontos_matamata[nome] += pts
             else:
@@ -243,7 +260,6 @@ aba_placar, aba_palpites, aba_galera, aba_estatisticas, aba_admin = st.tabs(
 
 # ────────────────────────────────────────────────────────────────────────────────
 with aba_placar:
-    # Placar Geral
     st.subheader("🏆 Placar Geral")
     ranking_geral = sorted(pontos_geral.items(), key=lambda x: x[1], reverse=True)
     c1, c2, c3, c4, c5 = st.columns(5)
@@ -252,7 +268,6 @@ with aba_placar:
 
     st.divider()
 
-    # Placar Fase de Grupos
     st.subheader("⚽ Placar da Fase de Grupos")
     ranking_grupos = sorted(pontos_grupos.items(), key=lambda x: x[1], reverse=True)
     c1, c2, c3, c4, c5 = st.columns(5)
@@ -261,7 +276,6 @@ with aba_placar:
 
     st.divider()
 
-    # Placar Mata-Mata
     st.subheader("🔥 Placar do Mata-Mata")
     ranking_mata = sorted(pontos_matamata.items(), key=lambda x: x[1], reverse=True)
     c1, c2, c3, c4, c5 = st.columns(5)
@@ -273,10 +287,9 @@ with aba_palpites:
     st.subheader("🎯 Meus Palpites")
     st.info("""
     **🚨 REGRAS IMPORTANTES PARA PALPITAR:**
-    * ⏳ **Aguarde a confirmação:** Ao clicar em salvar, não feche o app ou mude de tela! Espere a caixinha terminar de carregar e mostrar o aviso verde de sucesso.
-    * 🔒 **Horário limite:** Você pode mudar seu palpite quantas vezes quiser, mas a edição é bloqueada no exato minuto em que o jogo começa.
-    * 🔄 **Atualize a página:** Se você deixou o site aberto em segundo plano no celular por muito tempo, atualize a página antes de salvar para evitar erros de conexão.
-    * 🌙 **Virada do dia:** O nosso calendário vira o dia oficial do bolão sempre à 1h da manhã.
+    * ⏳ **Aguarde a confirmação:** Ao clicar em salvar, não feche o app.
+    * 🔒 **Horário limite:** A edição é bloqueada no exato minuto em que o jogo começa.
+    * 🏆 **Pênaltis (Mata-Mata):** Se você palpitar EMPATE em jogos de mata-mata, deverá escolher quem avança nos pênaltis (+3 pontos extras).
     """)
 
     agora_br_real      = datetime.datetime.now(fuso_br)
@@ -302,12 +315,9 @@ with aba_palpites:
     if jogos_ativos.empty:
         st.info("Nenhum jogo programado para a seleção atual.")
     else:
-        # Calcula a coluna na planilha UMA VEZ, fora do loop.
-        # _row_num está no final do DataFrame, então não desloca as colunas anteriores.
         coluna_planilha = st.session_state.df.columns.get_loc(coluna_jogador) + 1
 
         with st.form("form_palpites"):
-            # novos_chutes: { df_index → { "chute": "2x1", "row_num": 5 } }
             novos_chutes = {}
 
             for index, jogo in jogos_ativos.iterrows():
@@ -337,26 +347,39 @@ with aba_palpites:
 
                 chute_atual = jogo[coluna_jogador]
                 try:
-                    g1, g2 = map(int, str(chute_atual).split("x")) if pd.notna(chute_atual) else (0, 0)
+                    if pd.notna(chute_atual) and str(chute_atual).strip() != "":
+                        partes_chute = str(chute_atual).lower().split("-")
+                        g1, g2 = map(int, partes_chute[0].split("x"))
+                        pen_atual = partes_chute[1] if len(partes_chute) > 1 else None
+                    else:
+                        g1, g2, pen_atual = 0, 0, None
                 except Exception:
-                    g1, g2 = 0, 0
+                    g1, g2, pen_atual = 0, 0, None
 
                 col_a, col_b = st.columns(2)
                 with col_a:
-                    gol_casa = st.number_input(
-                        "Mandante", min_value=0, max_value=20, value=g1,
-                        key=f"casa_{index}", disabled=jogo_ja_comecou
-                    )
+                    gol_casa = st.number_input("Mandante", min_value=0, max_value=20, value=g1, key=f"casa_{index}", disabled=jogo_ja_comecou)
                 with col_b:
-                    gol_fora = st.number_input(
-                        "Visitante", min_value=0, max_value=20, value=g2,
-                        key=f"fora_{index}", disabled=jogo_ja_comecou
+                    gol_fora = st.number_input("Visitante", min_value=0, max_value=20, value=g2, key=f"fora_{index}", disabled=jogo_ja_comecou)
+
+                penalti_sufixo = ""
+                # Se for mata-mata e o palpite for de empate, abre seleção de pênaltis
+                if gol_casa == gol_fora and is_matamata(jogo.get("Fase", "")):
+                    idx_padrao = 1 if pen_atual == "v" else 0
+                    vencedor_penaltis = st.radio(
+                        "🔥 Desempate: Quem avança nos pênaltis?",
+                        options=["Mandante", "Visitante"],
+                        index=idx_padrao,
+                        key=f"pen_{index}",
+                        horizontal=True,
+                        disabled=jogo_ja_comecou
                     )
+                    penalti_sufixo = "-m" if vencedor_penaltis == "Mandante" else "-v"
 
                 if not jogo_ja_comecou:
                     novos_chutes[index] = {
-                        "chute":   f"{gol_casa}x{gol_fora}",
-                        "row_num": int(jogo["_row_num"]),  # ← linha real na planilha
+                        "chute":   f"{gol_casa}x{gol_fora}{penalti_sufixo}",
+                        "row_num": int(jogo["_row_num"]),
                     }
 
                 st.divider()
@@ -365,39 +388,28 @@ with aba_palpites:
 
             if salvar:
                 if novos_chutes:
-                    with st.status("⏳ Salvando de forma segura...", expanded=True) as status:
-                        st.write("Empacotando seus palpites...")
-
+                    with st.status("⏳ Salvando palpites...", expanded=True) as status:
                         celulas_para_atualizar = []
-                        st.write("Enviando para o banco de dados...")
-
                         for idx, dados_chute in novos_chutes.items():
                             celulas_para_atualizar.append(
                                 gspread.Cell(
-                                    row=dados_chute["row_num"],  # ← linha real, não idx + 2
+                                    row=dados_chute["row_num"],
                                     col=coluna_planilha,
                                     value=dados_chute["chute"],
                                 )
                             )
-
                         try:
                             sheet.update_cells(celulas_para_atualizar)
-                            time.sleep(1)
                             status.update(label="✅ Palpites confirmados!", state="complete", expanded=False)
                             st.cache_data.clear()
+                            time.sleep(1)
                             st.rerun()
                         except Exception as e:
                             status.update(label="❌ Erro ao salvar!", state="error", expanded=True)
-                            st.error("Não foi possível salvar. Tente novamente ou atualize a página.")
+                            st.error("Não foi possível salvar.")
                             st.exception(e)
-
-                        time.sleep(1)
-                        status.update(label="✅ Palpites confirmados com sucesso!", state="complete", expanded=False)
-                        
-                        st.cache_data.clear()
-                        st.rerun()
                 else:
-                    st.warning("Todos os jogos filtrados já começaram. Não há palpites novos para salvar.")
+                    st.warning("Não há palpites novos para salvar.")
 
 # ────────────────────────────────────────────────────────────────────────────────
 with aba_galera:
@@ -458,31 +470,27 @@ with aba_galera:
             jogo_encerrado    = tem_resultado(resultado_oficial)
 
             if jogo_encerrado:
-                st.markdown(f"Placar oficial: **{resultado_oficial}**")
+                st.markdown(f"Placar oficial: **{formatar_chute_tela(resultado_oficial)}**")
             else:
-                st.caption(
-                    f"📅 Data: {jogo['Data']} | ⏰ Horário: {jogo.get('Horario', '-')} | 🟢 **Em andamento**"
-                )
+                st.caption(f"📅 Data: {jogo['Data']} | ⏰ Horário: {jogo.get('Horario', '-')} | 🟢 **Em andamento**")
 
             cols_profs = st.columns(5)
             for i, (nome_part, col_part) in enumerate(participantes):
                 with cols_profs[i]:
-                    valor_chute = (
-                        jogo[col_part]
-                        if pd.notna(jogo[col_part]) and str(jogo[col_part]).strip() != ""
-                        else "-"
-                    )
-                    if jogo_encerrado and valor_chute != "-":
-                        pontos_ganhos = calculo_pontuacao(resultado_oficial, valor_chute)
+                    chute_bruto = jogo[col_part]
+                    valor_chute_formatado = formatar_chute_tela(chute_bruto)
+                    
+                    if jogo_encerrado and valor_chute_formatado != "-":
+                        pontos_ganhos = calculo_pontuacao(resultado_oficial, chute_bruto)
                         cor = "normal" if pontos_ganhos > 0 else "off"
                         st.metric(
                             label=nome_part,
-                            value=str(valor_chute),
+                            value=valor_chute_formatado,
                             delta=f"{pontos_ganhos} pts",
                             delta_color=cor,
                         )
                     else:
-                        st.metric(label=nome_part, value=str(valor_chute))
+                        st.metric(label=nome_part, value=valor_chute_formatado)
 
             st.divider()
 
@@ -507,6 +515,7 @@ with aba_estatisticas:
             nome: {
                 "Cravadas (10)": 0, "Saldos (6)": 0,
                 "Vencedores (4)": 0, "Empates (4)": 0, "Zerados (0)": 0,
+                "Acertos Pênaltis (+3)": 0
             }
             for nome in jogadores
         }
@@ -520,36 +529,40 @@ with aba_estatisticas:
                 data_curta = "Data?"
             labels_grafico.append(f"Jogo {contador_jogo:03d} ({data_curta})")
 
-            try:
-                g1_r, g2_r    = map(int, str(resultado).lower().split("x"))
-                eh_empate_real = (g1_r == g2_r)
-            except Exception:
-                eh_empate_real = False
+            g1_r, g2_r, pen_r = parse_placar(resultado)
+            eh_empate_real = (g1_r is not None and g1_r == g2_r)
 
             for nome, col in jogadores.items():
                 chute = row.get(col, "")
                 pts   = calculo_pontuacao(resultado, chute)
                 historico_pontos[nome].append(historico_pontos[nome][-1] + pts)
 
-                if pts == 10:
+                # Avalia apenas a parte base (sem bônus) para a estatística
+                g1_c, g2_c, pen_c = parse_placar(chute)
+                pts_base = pts - (3 if (pen_r is not None and pen_r == pen_c) else 0)
+
+                if pts_base == 10:
                     stats_jogadores[nome]["Cravadas (10)"] += 1
-                elif pts == 6:
+                elif pts_base == 6:
                     stats_jogadores[nome]["Saldos (6)"] += 1
-                elif pts == 4:
+                elif pts_base == 4:
                     key = "Empates (4)" if eh_empate_real else "Vencedores (4)"
                     stats_jogadores[nome][key] += 1
                 else:
                     stats_jogadores[nome]["Zerados (0)"] += 1
+                
+                if pen_r is not None and pen_r == pen_c:
+                    stats_jogadores[nome]["Acertos Pênaltis (+3)"] += 1
 
         st.markdown("### 📈 Corrida dos Pontos")
-        df_grafico       = pd.DataFrame(historico_pontos, index=labels_grafico)
+        df_grafico = pd.DataFrame(historico_pontos, index=labels_grafico)
         st.line_chart(df_grafico)
         st.divider()
 
         st.markdown("### 🏅 Raio-X dos Acertos")
         df_stats = pd.DataFrame(stats_jogadores).T
         df_stats["Pontos Totais"] = [historico_pontos[nome][-1] for nome in jogadores]
-        df_stats = df_stats[["Pontos Totais", "Cravadas (10)", "Saldos (6)", "Vencedores (4)", "Empates (4)", "Zerados (0)"]]
+        df_stats = df_stats[["Pontos Totais", "Cravadas (10)", "Saldos (6)", "Vencedores (4)", "Empates (4)", "Acertos Pênaltis (+3)", "Zerados (0)"]]
         df_stats = df_stats.sort_values(by=["Pontos Totais", "Cravadas (10)"], ascending=[False, False])
         st.dataframe(df_stats, use_container_width=True)
 
@@ -557,6 +570,7 @@ with aba_estatisticas:
 with aba_admin:
     if usuario_logado == "hc":
         st.subheader("⚙️ Atualizar Resultados Oficiais")
+        st.info("📌 **DICA PARA MATA-MATA:** Se o jogo terminou empatado e foi para os pênaltis, adicione `-m` (vitória do Mandante) ou `-v` (vitória do Visitante) ao resultado final. Exemplo: `1x1-m` ou `2x2-v`.")
 
         df_admin = df_temp[["Data", "Equipe_Mandante", "Equipe_Visitante", "Resultado"]].copy()
 
@@ -575,7 +589,7 @@ with aba_admin:
                 resultado_novo  = row["Resultado"]
 
                 if str(resultado_velho) != str(resultado_novo):
-                    linha_planilha = int(df_temp.loc[index, "_row_num"])  # ← linha real
+                    linha_planilha = int(df_temp.loc[index, "_row_num"])
                     sheet.update_cell(linha_planilha, coluna_resultado, resultado_novo)
                     alteracoes_feitas += 1
 
