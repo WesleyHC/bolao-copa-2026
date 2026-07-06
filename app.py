@@ -118,7 +118,9 @@ def get_multiplicador_fase(fase_val) -> float:
     if pd.isna(fase_val):
         return 1.0
     fase_str = str(fase_val).lower()
-    if "oitava" in fase_str or "16" in fase_str:
+    
+    # 16-avos não recebe aumento, retorna o padrão (1.0) lá embaixo
+    if "oitava" in fase_str:
         return 1.25
     elif "quarta" in fase_str:
         return 1.50
@@ -126,7 +128,7 @@ def get_multiplicador_fase(fase_val) -> float:
         return 1.75
     elif "final" in fase_str or "3º" in fase_str or "terceiro" in fase_str:
         return 2.00
-    return 1.0 # Fase de Grupos
+    return 1.0 # Fase de Grupos e 16-avos
 
 def normalizar_nome(nome: str) -> str:
     nome_limpo = str(nome).strip().title()
@@ -308,7 +310,7 @@ with aba_palpites:
     **🚨 REGRAS IMPORTANTES PARA PALPITAR:**
     * ⏳ **Aguarde a confirmação:** Ao clicar em salvar, não feche o app.
     * 🔒 **Horário limite:** A edição é bloqueada no exato minuto em que o jogo começa.
-    * 📈 **Pesos do Mata-Mata:** Oitavas (+25%), Quartas (+50%), Semis (+75%), 3º Lugar e Final (Dobro de pontos!).
+    * 📈 **Pesos do Mata-Mata:** Oitavas (+25%), Quartas (+50%), Semis (+75%), 3º Lugar e Final (Dobro de pontos!). Os jogos de 16-avos valem pontuação normal.
     * 🏆 **Pênaltis:** Se você palpitar EMPATE em jogos de mata-mata, deverá escolher quem avança nos pênaltis (+3 pontos bases extras).
     """)
 
@@ -367,7 +369,8 @@ with aba_palpites:
                     mult_texto = ""
                     if is_matamata(jogo.get("Fase", "")):
                         mult = get_multiplicador_fase(jogo.get("Fase", ""))
-                        mult_texto = f" | 📈 Multiplicador: **{mult}x**"
+                        if mult > 1.0:
+                            mult_texto = f" | 📈 Multiplicador: **{mult}x**"
 
                     st.caption(f"📅 Data: {data_curta} | ⏰ Horário: {jogo['Horario']}{mult_texto}")
 
@@ -635,4 +638,3 @@ with aba_admin:
                 st.info("Nenhuma alteração detectada para salvar.")
     else:
         st.error("Você não tem permissão para acessar esta área.")
-
