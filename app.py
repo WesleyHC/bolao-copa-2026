@@ -113,6 +113,21 @@ def is_matamata(fase_val):
     fase_str = str(fase_val).lower()
     return any(termo in fase_str for termo in termos_matamata)
 
+def get_multiplicador_fase(fase_val) -> float:
+    """Retorna o multiplicador de pontos baseado na fase do torneio."""
+    if pd.isna(fase_val):
+        return 1.0
+    fase_str = str(fase_val).lower()
+    if "oitava" in fase_str or "16" in fase_str:
+        return 1.25
+    elif "quarta" in fase_str:
+        return 1.50
+    elif "semi" in fase_str:
+        return 1.75
+    elif "final" in fase_str or "3º" in fase_str or "terceiro" in fase_str:
+        return 2.00
+    return 1.0 # Fase de Grupos
+
 def normalizar_nome(nome: str) -> str:
     nome_limpo = str(nome).strip().title()
     nome_limpo = _SUBSTITUICOES_NOME.get(nome_limpo, nome_limpo)
@@ -162,6 +177,7 @@ def formatar_chute_tela(chute_str):
     return s
 
 def calculo_pontuacao(resultado_real, resultado_chutado) -> int:
+    """Retorna os pontos BASES (sem multiplicador) ganhos no jogo."""
     g1_r, g2_r, pen_r = parse_placar(resultado_real)
     g1_c, g2_c, pen_c = parse_placar(resultado_chutado)
 
@@ -237,19 +253,22 @@ with col2:
         st.rerun()
 
 # ── Pontuação geral ────────────────────────────────────────────────────────────
-pontos_geral = {nome: 0 for nome in jogadores}
-pontos_grupos = {nome: 0 for nome in jogadores}
-pontos_matamata = {nome: 0 for nome in jogadores}
+pontos_geral = {nome: 0.0 for nome in jogadores}
+pontos_grupos = {nome: 0.0 for nome in jogadores}
+pontos_matamata = {nome: 0.0 for nome in jogadores}
 
 for nome, col_chute in jogadores.items():
     if col_chute in df_temp.columns and "Resultado" in df_temp.columns:
         for index, row in df_temp.iterrows():
-            pts = calculo_pontuacao(row["Resultado"], row[col_chute])
-            pontos_geral[nome] += pts
-            if "Fase" in df_temp.columns and is_matamata(row["Fase"]):
-                pontos_matamata[nome] += pts
+            fase = row.get("Fase", "")
+            pts_base = calculo_pontuacao(row["Resultado"], row[col_chute])
+            pts_finais = pts_base * get_multiplicador_fase(fase)
+            
+            pontos_geral[nome] += pts_finais
+            if is_matamata(fase):
+                pontos_matamata[nome] += pts_finais
             else:
-                pontos_grupos[nome] += pts
+                pontos_grupos[nome] += pts_finais
 
 st.divider()
 
@@ -264,7 +283,7 @@ with aba_placar:
     ranking_geral = sorted(pontos_geral.items(), key=lambda x: x[1], reverse=True)
     c1, c2, c3, c4, c5 = st.columns(5)
     for i, (nome, pts) in enumerate(ranking_geral):
-        [c1, c2, c3, c4, c5][i].metric(f"{i+1}º - {nome}", f"{pts} pts")
+        [c1, c2, c3, c4, c5][i].metric(f"{i+1}º - {nome}", f"{pts:g} pts")
 
     st.divider()
 
@@ -272,7 +291,7 @@ with aba_placar:
     ranking_grupos = sorted(pontos_grupos.items(), key=lambda x: x[1], reverse=True)
     c1, c2, c3, c4, c5 = st.columns(5)
     for i, (nome, pts) in enumerate(ranking_grupos):
-        [c1, c2, c3, c4, c5][i].metric(f"{i+1}º - {nome}", f"{pts} pts")
+        [c1, c2, c3, c4, c5][i].metric(f"{i+1}º - {nome}", f"{pts:g} pts")
 
     st.divider()
 
@@ -280,7 +299,7 @@ with aba_placar:
     ranking_mata = sorted(pontos_matamata.items(), key=lambda x: x[1], reverse=True)
     c1, c2, c3, c4, c5 = st.columns(5)
     for i, (nome, pts) in enumerate(ranking_mata):
-        [c1, c2, c3, c4, c5][i].metric(f"{i+1}º - {nome}", f"{pts} pts")
+        [c1, c2, c3, c4, c5][i].metric(f"{i+1}º - {nome}", f"{pts:g} pts")
 
 # ────────────────────────────────────────────────────────────────────────────────
 with aba_palpites:
@@ -289,7 +308,8 @@ with aba_palpites:
     **🚨 REGRAS IMPORTANTES PARA PALPITAR:**
     * ⏳ **Aguarde a confirmação:** Ao clicar em salvar, não feche o app.
     * 🔒 **Horário limite:** A edição é bloqueada no exato minuto em que o jogo começa.
-    * 🏆 **Pênaltis (Mata-Mata):** Se você palpitar EMPATE em jogos de mata-mata, deverá escolher quem avança nos pênaltis (+3 pontos extras).
+    * 📈 **Pesos do Mata-Mata:** Oitavas (+25%), Quartas (+50%), Semis (+75%), 3º Lugar e Final (Dobro de pontos!).
+    * 🏆 **Pênaltis:** Se você palpitar EMPATE em jogos de mata-mata, deverá escolher quem avança nos pênaltis (+3 pontos bases extras).
     """)
 
     agora_br_real      = datetime.datetime.now(fuso_br)
@@ -343,7 +363,13 @@ with aba_palpites:
                         data_curta  = f"{data_string[-2:]}/{data_string[-5:-3]}"
                     except Exception:
                         data_curta = jogo["Data"]
-                    st.caption(f"📅 Data: {data_curta} | ⏰ Horário: {jogo['Horario']}")
+                    
+                    mult_texto = ""
+                    if is_matamata(jogo.get("Fase", "")):
+                        mult = get_multiplicador_fase(jogo.get("Fase", ""))
+                        mult_texto = f" | 📈 Multiplicador: **{mult}x**"
+
+                    st.caption(f"📅 Data: {data_curta} | ⏰ Horário: {jogo['Horario']}{mult_texto}")
 
                 chute_atual = jogo[coluna_jogador]
                 try:
@@ -464,6 +490,7 @@ with aba_galera:
         ]
 
         for index, jogo in jogos_para_exibir.iterrows():
+            fase_atual = jogo.get("Fase", "")
             st.markdown(f"### {jogo['Equipe_Mandante']} x {jogo['Equipe_Visitante']}")
 
             resultado_oficial = jogo.get("Resultado", "")
@@ -481,12 +508,14 @@ with aba_galera:
                     valor_chute_formatado = formatar_chute_tela(chute_bruto)
                     
                     if jogo_encerrado and valor_chute_formatado != "-":
-                        pontos_ganhos = calculo_pontuacao(resultado_oficial, chute_bruto)
+                        pts_base = calculo_pontuacao(resultado_oficial, chute_bruto)
+                        pontos_ganhos = pts_base * get_multiplicador_fase(fase_atual)
+                        
                         cor = "normal" if pontos_ganhos > 0 else "off"
                         st.metric(
                             label=nome_part,
                             value=valor_chute_formatado,
-                            delta=f"{pontos_ganhos} pts",
+                            delta=f"{pontos_ganhos:g} pts",
                             delta_color=cor,
                         )
                     else:
@@ -509,19 +538,22 @@ with aba_estatisticas:
         df_encerrados["_datetime"]      = pd.to_datetime(df_encerrados["_data_hora_str"], errors="coerce")
         df_encerrados = df_encerrados.sort_values(by=["_datetime"], ascending=True)
 
-        historico_pontos = {nome: [0] for nome in jogadores}
+        historico_pontos = {nome: [0.0] for nome in jogadores}
         labels_grafico   = ["Jogo 000 (Início)"]
+        
+        # Como os pontos variam no mata-mata, renomeamos as chaves removendo o (10), (6), etc.
         stats_jogadores  = {
             nome: {
-                "Cravadas (10)": 0, "Saldos (6)": 0,
-                "Vencedores (4)": 0, "Empates (4)": 0, "Zerados (0)": 0,
-                "Acertos Pênaltis (+3)": 0
+                "Cravadas": 0, "Saldos": 0,
+                "Vencedores": 0, "Empates": 0, "Zerados": 0,
+                "Acertos Pênaltis": 0
             }
             for nome in jogadores
         }
 
         for contador_jogo, (_, row) in enumerate(df_encerrados.iterrows(), start=1):
             resultado = row["Resultado"]
+            fase_jogo = row.get("Fase", "")
             try:
                 data_string = str(row["Data"])
                 data_curta  = f"{data_string[-2:]}/{data_string[-5:-3]}"
@@ -534,25 +566,27 @@ with aba_estatisticas:
 
             for nome, col in jogadores.items():
                 chute = row.get(col, "")
-                pts   = calculo_pontuacao(resultado, chute)
-                historico_pontos[nome].append(historico_pontos[nome][-1] + pts)
+                pts_brutos   = calculo_pontuacao(resultado, chute)
+                pts_multiplicados = pts_brutos * get_multiplicador_fase(fase_jogo)
+                
+                historico_pontos[nome].append(historico_pontos[nome][-1] + pts_multiplicados)
 
-                # Avalia apenas a parte base (sem bônus) para a estatística
+                # Avalia a natureza do acerto pelos pontos base, ignorando o bônus de pênalti
                 g1_c, g2_c, pen_c = parse_placar(chute)
-                pts_base = pts - (3 if (pen_r is not None and pen_r == pen_c) else 0)
+                pts_base = pts_brutos - (3 if (pen_r is not None and pen_r == pen_c) else 0)
 
                 if pts_base == 10:
-                    stats_jogadores[nome]["Cravadas (10)"] += 1
+                    stats_jogadores[nome]["Cravadas"] += 1
                 elif pts_base == 6:
-                    stats_jogadores[nome]["Saldos (6)"] += 1
+                    stats_jogadores[nome]["Saldos"] += 1
                 elif pts_base == 4:
-                    key = "Empates (4)" if eh_empate_real else "Vencedores (4)"
+                    key = "Empates" if eh_empate_real else "Vencedores"
                     stats_jogadores[nome][key] += 1
                 else:
-                    stats_jogadores[nome]["Zerados (0)"] += 1
+                    stats_jogadores[nome]["Zerados"] += 1
                 
                 if pen_r is not None and pen_r == pen_c:
-                    stats_jogadores[nome]["Acertos Pênaltis (+3)"] += 1
+                    stats_jogadores[nome]["Acertos Pênaltis"] += 1
 
         st.markdown("### 📈 Corrida dos Pontos")
         df_grafico = pd.DataFrame(historico_pontos, index=labels_grafico)
@@ -562,8 +596,8 @@ with aba_estatisticas:
         st.markdown("### 🏅 Raio-X dos Acertos")
         df_stats = pd.DataFrame(stats_jogadores).T
         df_stats["Pontos Totais"] = [historico_pontos[nome][-1] for nome in jogadores]
-        df_stats = df_stats[["Pontos Totais", "Cravadas (10)", "Saldos (6)", "Vencedores (4)", "Empates (4)", "Acertos Pênaltis (+3)", "Zerados (0)"]]
-        df_stats = df_stats.sort_values(by=["Pontos Totais", "Cravadas (10)"], ascending=[False, False])
+        df_stats = df_stats[["Pontos Totais", "Cravadas", "Saldos", "Vencedores", "Empates", "Acertos Pênaltis", "Zerados"]]
+        df_stats = df_stats.sort_values(by=["Pontos Totais", "Cravadas"], ascending=[False, False])
         st.dataframe(df_stats, use_container_width=True)
 
 # ────────────────────────────────────────────────────────────────────────────────
@@ -601,3 +635,4 @@ with aba_admin:
                 st.info("Nenhuma alteração detectada para salvar.")
     else:
         st.error("Você não tem permissão para acessar esta área.")
+
